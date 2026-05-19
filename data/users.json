@@ -1,0 +1,10 @@
+[
+  {
+    "id": "user_admin",
+    "name": "Admin Pusat",
+    "email": "admin@crowdfund.local",
+    "password": "admin123",
+    "role": "admin",
+    "createdAt": "2026-05-19T00:00:00.000Z"
+  }
+]

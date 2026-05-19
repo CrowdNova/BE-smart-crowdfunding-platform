@@ -1,0 +1,13 @@
+[
+  {
+    "id": "trx_1779131020896_6gj9fl",
+    "donationId": "don_1779131020892_urbis7",
+    "campaignId": "2",
+    "amount": 50000,
+    "method": "QRIS",
+    "status": "paid",
+    "gateway": "pakasir-sdk",
+    "referenceId": "pakasir_1779131020896_baj4ft",
+    "createdAt": "2026-05-18T19:03:40.896Z"
+  }
+]

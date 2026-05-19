@@ -1,0 +1,20 @@
+[
+  {
+    "id": "don_1",
+    "campaignId": "1",
+    "userId": "user_admin",
+    "donorName": "Hamba Allah",
+    "amount": 500000,
+    "method": "QRIS",
+    "createdAt": "2026-05-19T00:00:00.000Z"
+  },
+  {
+    "id": "don_1779131020892_urbis7",
+    "campaignId": "2",
+    "donorName": "Admin Pusat",
+    "userId": "user_admin",
+    "amount": 50000,
+    "method": "QRIS",
+    "createdAt": "2026-05-18T19:03:40.892Z"
+  }
+]
