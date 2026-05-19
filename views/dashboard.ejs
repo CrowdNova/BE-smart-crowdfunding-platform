@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Crowdfunding - Kelompok 5</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="/js/tailwind-config.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased overflow-x-hidden">
+
+    <div class="flex h-screen overflow-hidden">
+        <%- include("partials/dashboard-sidebar", { activePage }) %>
+
+        <div class="flex-1 flex flex-col h-screen overflow-hidden">
+            <%- include("partials/dashboard-header") %>
+
+            <main class="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-slate-50/50">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-8">
+                    <div>
+                        <h1 class="text-2xl font-bold text-slate-900">Overview Dashboard</h1>
+                        <p class="text-sm text-slate-500 mt-1">Pantau perkembangan donasi secara real-time.</p>
+                    </div>
+                    <button onclick="window.location.href='/buat-campaign'" class="mt-4 sm:mt-0 bg-primary-600 hover:bg-primary-700 text-white px-4 py-2.5 rounded-lg font-medium text-sm transition-colors shadow-sm flex items-center justify-center space-x-2">
+                        <i class="ph ph-plus-circle text-lg"></i>
+                        <span>Buat Campaign</span>
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 relative overflow-hidden group">
+                        <div class="relative z-10 flex justify-between items-start">
+                            <div>
+                                <p class="text-sm font-medium text-slate-500 mb-1">Total Dana Terkumpul</p>
+                                <h3 class="text-3xl font-bold text-slate-900 mb-2" id="stat-total-dana">Rp 45.500.000</h3>
+                                <div class="flex items-center text-sm text-emerald-600 font-medium">
+                                    <i class="ph ph-trend-up mr-1"></i> +12.5% <span class="text-slate-400 ml-2 font-normal">vs bulan lalu</span>
+                                </div>
+                            </div>
+                            <div class="w-12 h-12 bg-primary-100 rounded-xl flex items-center justify-center text-primary-600">
+                                <i class="ph ph-wallet text-2xl"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-sm font-medium text-slate-500 mb-1">Total Donatur</p>
+                                <h3 class="text-3xl font-bold text-slate-900 mb-2" id="stat-total-donatur">1,248</h3>
+                                <div class="flex items-center text-sm text-emerald-600 font-medium">
+                                    <i class="ph ph-trend-up mr-1"></i> +5.2% <span class="text-slate-400 ml-2 font-normal">vs bulan lalu</span>
+                                </div>
+                            </div>
+                            <div class="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600">
+                                <i class="ph ph-users text-2xl"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-sm font-medium text-slate-500 mb-1">Campaign Aktif</p>
+                                <h3 class="text-3xl font-bold text-slate-900 mb-2">12</h3>
+                                <div class="text-sm text-slate-500">2 menunggu verifikasi</div>
+                            </div>
+                            <div class="w-12 h-12 bg-amber-50 rounded-xl flex items-center justify-center text-amber-600">
+                                <i class="ph ph-megaphone text-2xl"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                    <div class="lg:col-span-2 bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+                        <div class="flex flex-col sm:flex-row justify-between items-center mb-6">
+                            <h2 class="text-lg font-bold text-slate-900">Analytics Pendanaan</h2>
+                            <div class="flex bg-slate-100 p-1 rounded-lg">
+                                <button onclick="updateChart('week')" id="btn-filter-week" class="chart-filter-btn px-3 py-1.5 text-sm font-medium rounded-md text-slate-500">1 Minggu</button>
+                                <button onclick="updateChart('month')" id="btn-filter-month" class="chart-filter-btn px-3 py-1.5 text-sm font-medium rounded-md bg-white text-slate-900 shadow-sm">1 Bulan</button>
+                                <button onclick="updateChart('year')" id="btn-filter-year" class="chart-filter-btn px-3 py-1.5 text-sm font-medium rounded-md text-slate-500">1 Tahun</button>
+                            </div>
+                        </div>
+                        <div class="relative h-72 w-full">
+                            <canvas id="donationChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col">
+                        <div class="flex justify-between items-center mb-6">
+                            <h2 class="text-lg font-bold text-slate-900">Donasi Terbaru</h2>
+                        </div>
+                        <div class="flex-1 overflow-y-auto pr-2" id="recent-transactions-list">
+                            <div class="flex items-center justify-between py-3 border-b border-slate-50 last:border-0">
+                                <div class="flex items-center space-x-3">
+                                    <div class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 font-medium">HN</div>
+                                    <div>
+                                        <p class="text-sm font-medium text-slate-900">Hamba Allah</p>
+                                        <p class="text-xs text-slate-500">Bantuan Medis...</p>
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <p class="text-sm font-bold text-emerald-600">+Rp 500k</p>
+                                    <p class="text-xs text-slate-400">Baru saja</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="campaignGrid">
+                    <div class="bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100 flex flex-col" data-campaign-card data-campaign-id="1">
+                        <a class="h-48 bg-slate-200 cursor-pointer block" data-campaign-link href="/campaign/1">
+                            <img src="https://images.unsplash.com/photo-1532938911079-1b06ac7ceec7?w=600&auto=format&fit=crop&q=60" class="w-full h-full object-cover hover:scale-105 transition-transform duration-500" data-campaign-image>
+                        </a>
+                        <div class="p-5 flex-1 flex flex-col">
+                            <div class="text-xs font-medium text-primary-600 mb-2" data-campaign-category>Bantuan Medis</div>
+                            <a class="font-bold text-slate-900 mb-2 hover:text-primary-600 cursor-pointer transition-colors" data-campaign-title data-campaign-link href="/campaign/1">Bantu Biaya Operasi Jantung Dek Nisa</a>
+                            <div class="mt-auto">
+                                <div class="w-full bg-slate-100 rounded-full h-2 mb-2 overflow-hidden">
+                                    <div class="bg-primary-500 h-2 rounded-full" id="progress-bar-1" data-campaign-progress style="width: 65%"></div>
+                                </div>
+                                <div class="flex justify-between text-sm mb-4">
+                                    <span class="font-bold" id="terkumpul-1" data-campaign-current>Rp 65.000.000</span>
+                                    <span class="text-slate-400" data-campaign-target>Target Rp 100jt</span>
+                                </div>
+                                <button class="w-full bg-primary-50 hover:bg-primary-100 text-primary-700 font-semibold py-2.5 rounded-lg border border-primary-200 transition-colors" data-action="donate" data-campaign-id="1">
+                                    Simulasi Donasi
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100 flex flex-col" data-campaign-card data-campaign-id="2">
+                        <a class="h-48 bg-slate-200 cursor-pointer block" data-campaign-link href="/campaign/2">
+                            <img src="https://images.unsplash.com/photo-1509062522246-3755977927d7?w=600&auto=format&fit=crop&q=60" class="w-full h-full object-cover hover:scale-105 transition-transform duration-500" data-campaign-image>
+                        </a>
+                        <div class="p-5 flex-1 flex flex-col">
+                            <div class="text-xs font-medium text-blue-600 mb-2" data-campaign-category>Pendidikan</div>
+                            <a class="font-bold text-slate-900 mb-2 hover:text-primary-600 cursor-pointer transition-colors" data-campaign-title data-campaign-link href="/campaign/2">Renovasi SD Pelosok Desa</a>
+                            <div class="mt-auto">
+                                <div class="w-full bg-slate-100 rounded-full h-2 mb-2 overflow-hidden">
+                                    <div class="bg-blue-500 h-2 rounded-full" id="progress-bar-2" data-campaign-progress style="width: 42%"></div>
+                                </div>
+                                <div class="flex justify-between text-sm mb-4">
+                                    <span class="font-bold" id="terkumpul-2" data-campaign-current>Rp 21.000.000</span>
+                                    <span class="text-slate-400" data-campaign-target>Target Rp 50jt</span>
+                                </div>
+                                <button class="w-full bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold py-2.5 rounded-lg border border-blue-200 transition-colors" data-action="donate" data-campaign-id="2">
+                                    Simulasi Donasi
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <div id="donationModal" class="fixed inset-0 z-50 hidden flex items-center justify-center">
+        <div class="absolute inset-0 bg-slate-900/40 modal-backdrop transition-opacity" onclick="closeDonationModal()"></div>
+        <div class="bg-white rounded-2xl w-full max-w-md mx-4 relative z-10 shadow-2xl transform scale-95 transition-transform duration-300" id="modalContent">
+            <div class="px-6 py-4 border-b flex justify-between items-center">
+                <h3 class="font-bold text-lg">Simulasi Donasi</h3>
+                <button onclick="closeDonationModal()" class="text-slate-400 hover:text-slate-600"><i class="ph ph-x text-xl"></i></button>
+            </div>
+            <div class="p-6">
+                <p class="text-sm text-slate-500 mb-1">Kampanye:</p>
+                <p class="font-bold mb-5" id="modalCampaignTitle"></p>
+
+                <div class="mb-5">
+                    <label class="block text-sm font-medium text-slate-700 mb-2">Pilih Nominal</label>
+                    <div class="grid grid-cols-3 gap-2 mb-3">
+                        <button onclick="setNominal(50000)" class="border rounded-lg py-2 text-sm hover:border-primary-500">50k</button>
+                        <button onclick="setNominal(100000)" class="border rounded-lg py-2 text-sm hover:border-primary-500">100k</button>
+                        <button onclick="setNominal(250000)" class="border rounded-lg py-2 text-sm hover:border-primary-500">250k</button>
+                    </div>
+                    <input type="number" id="inputNominal" class="w-full p-2.5 border rounded-lg" placeholder="Nominal lain (Min 10.000)...">
+                </div>
+
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-slate-700 mb-2">Metode Pembayaran</label>
+                    <select id="paymentMethod" class="w-full p-2.5 border rounded-lg bg-white">
+                        <option value="qris">QRIS</option>
+                        <option value="bni_va">BNI Virtual Account</option>
+                        <option value="bri_va">BRI Virtual Account</option>
+                        <option value="permata_va">Permata Virtual Account</option>
+                        <option value="atm_bersama_va">ATM Bersama Virtual Account</option>
+                        <option value="paypal">PayPal</option>
+                    </select>
+                </div>
+
+                <button onclick="processDonation()" class="w-full bg-primary-600 text-white font-bold py-3 rounded-lg hover:bg-primary-700 transition-colors">
+                    Bayar Sekarang
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col gap-3 pointer-events-none"></div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/js/app.js" defer></script>
+</body>
+</html>

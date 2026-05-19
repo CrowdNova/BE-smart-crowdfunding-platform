@@ -1,0 +1,37 @@
+<% const userName = currentUser && currentUser.name ? currentUser.name : null; %>
+<nav class="bg-white/80 backdrop-blur-md fixed w-full z-50 top-0 border-b border-slate-100 transition-all">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex justify-between items-center h-16">
+            <a href="/" class="flex items-center space-x-2">
+                <i class="ph-fill ph-hand-heart text-primary-600 text-3xl"></i>
+                <span class="text-xl font-bold tracking-tight text-slate-900">CrowdFund</span>
+            </a>
+
+            <div class="hidden md:flex items-center space-x-8">
+                <a href="/" class="text-sm font-medium text-slate-900 hover:text-primary-600 transition-colors">Beranda</a>
+                <a href="#campaigns" class="text-sm font-medium text-slate-600 hover:text-primary-600 transition-colors">Campaign</a>
+                <a href="#" class="text-sm font-medium text-slate-600 hover:text-primary-600 transition-colors">Tentang Kami</a>
+                <a href="#" class="text-sm font-medium text-slate-600 hover:text-primary-600 transition-colors">Bantuan</a>
+            </div>
+
+            <% if (userName) { %>
+            <div class="hidden md:flex items-center space-x-3">
+                <span class="text-sm font-semibold text-slate-700">Halo, <%= userName %></span>
+                <a href="/dashboard" class="text-sm font-semibold text-slate-700 hover:text-primary-600 px-3 py-2 transition-colors">Dashboard</a>
+                <a href="/logout" class="text-sm font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg transition-colors">Logout</a>
+            </div>
+            <% } else { %>
+            <div class="hidden md:flex items-center space-x-3">
+                <a href="/login" class="text-sm font-semibold text-slate-700 hover:text-primary-600 px-3 py-2 transition-colors">Masuk</a>
+                <a href="/register" class="text-sm font-semibold bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-lg shadow-sm transition-colors">Daftar</a>
+            </div>
+            <% } %>
+
+            <div class="md:hidden flex items-center">
+                <button class="text-slate-600 hover:text-slate-900 focus:outline-none">
+                    <i class="ph ph-list text-2xl"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</nav>

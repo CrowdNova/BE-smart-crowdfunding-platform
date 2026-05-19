@@ -10,6 +10,7 @@
   "dependencies": {
     "cors": "^2.8.5",
     "dotenv": "^17.4.2",
+    "ejs": "^3.1.10",
     "express": "^4.19.2",
     "pakasir-sdk": "latest",
     "passport": "^0.7.0",

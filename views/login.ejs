@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Masuk - CrowdFund</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="/js/tailwind-config.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/css/style.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        primary: { 50: '#f0fdf4', 100: '#dcfce7', 500: '#22c55e', 600: '#16a34a', 700: '#15803d' }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-slate-50 font-sans text-slate-800 antialiased min-h-screen flex flex-col">
+
+    <div class="absolute top-6 left-6">
+        <a href="/" class="flex items-center space-x-2 text-slate-900 hover:opacity-80 transition-opacity">
+            <i class="ph-fill ph-hand-heart text-primary-600 text-3xl"></i>
+            <span class="text-xl font-bold tracking-tight">CrowdFund</span>
+        </a>
+    </div>
+
+    <div class="flex-1 flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-md rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100 p-8 sm:p-10">
+            <div class="text-center mb-8">
+                <h1 class="text-2xl font-bold text-slate-900 mb-2">Selamat Datang Kembali</h1>
+                <p class="text-sm text-slate-500">Masuk untuk mulai berdonasi atau memantau campaign Anda.</p>
+            </div>
+
+            <form action="#" method="POST" class="space-y-5" id="loginForm">
+                <div>
+                    <label for="email" class="block text-sm font-medium text-slate-700 mb-1.5">Email Address</label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <i class="ph ph-envelope-simple text-slate-400 text-lg"></i>
+                        </div>
+                        <input type="email" id="email" name="email" required class="block w-full pl-10 pr-3 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 sm:text-sm transition-all outline-none" placeholder="nama@email.com">
+                    </div>
+                </div>
+
+                <div>
+                    <div class="flex items-center justify-between mb-1.5">
+                        <label for="password" class="block text-sm font-medium text-slate-700">Password</label>
+                        <a href="#" class="text-xs font-medium text-primary-600 hover:text-primary-700">Lupa Password?</a>
+                    </div>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <i class="ph ph-lock-key text-slate-400 text-lg"></i>
+                        </div>
+                        <input type="password" id="password" name="password" required class="block w-full pl-10 pr-10 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 sm:text-sm transition-all outline-none" placeholder="••••••••">
+                        <div class="absolute inset-y-0 right-0 pr-3 flex items-center cursor-pointer">
+                            <i class="ph ph-eye-slash text-slate-400 hover:text-slate-600 text-lg"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex items-center">
+                    <input id="remember-me" name="remember-me" type="checkbox" class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded cursor-pointer">
+                    <label for="remember-me" class="ml-2 block text-sm text-slate-600 cursor-pointer">
+                        Ingat saya
+                    </label>
+                </div>
+
+                <button type="submit" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-xl shadow-sm text-sm font-bold text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors">
+                    Masuk Sekarang
+                </button>
+            </form>
+
+            <div class="mt-8 relative">
+                <div class="absolute inset-0 flex items-center" aria-hidden="true">
+                    <div class="w-full border-t border-slate-200"></div>
+                </div>
+                <div class="relative flex justify-center text-sm">
+                    <span class="px-3 bg-white text-slate-500">Atau masuk dengan</span>
+                </div>
+            </div>
+
+            <div class="mt-6 grid grid-cols-2 gap-3">
+                <a href="/auth/google" class="w-full inline-flex justify-center py-2.5 px-4 border border-slate-300 rounded-xl shadow-sm bg-white text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">
+                    <img src="https://www.svgrepo.com/show/475656/google-color.svg" class="h-5 w-5 mr-2" alt="Google">
+                    Google
+                </a>
+                <button class="w-full inline-flex justify-center py-2.5 px-4 border border-slate-300 rounded-xl shadow-sm bg-white text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">
+                    <i class="ph-fill ph-facebook-logo text-[#1877F2] text-xl mr-2"></i>
+                    Facebook
+                </button>
+            </div>
+
+            <p class="mt-8 text-center text-sm text-slate-600">
+                Belum punya akun?
+                <a href="/register" class="font-semibold text-primary-600 hover:text-primary-700">Daftar sekarang</a>
+            </p>
+        </div>
+    </div>
+    <script src="/js/app.js" defer></script>
+</body>
+</html>

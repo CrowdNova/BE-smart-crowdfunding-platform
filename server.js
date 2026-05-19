@@ -257,7 +257,7 @@ const requirePageAuth = async (req, res, next) => {
     try {
         const user = await getAuthUser(req);
         if (!user) {
-            res.redirect("/login.html");
+            res.redirect("/login");
             return;
         }
         req.authUser = user;
@@ -422,256 +422,30 @@ app.use(cors());
 app.use(express.json({ limit: "1mb" }));
 app.use(passport.initialize());
 
-app.get("/auth/google", ensureGoogleOAuth, passport.authenticate("google", {
-    scope: ["profile", "email"]
-}));
+app.set("view engine", "ejs");
+app.set("views", path.join(__dirname, "views"));
 
-app.get(
-    "/auth/google/callback",
-    ensureGoogleOAuth,
-    passport.authenticate("google", {
-        session: false,
-        failureRedirect: "/login.html"
-    }),
-    (req, res) => {
-        const userPayload = JSON.stringify(req.user).replace(/</g, "\\u003c");
-        res.cookie("auth_user", req.user.id, { sameSite: "lax" });
-        res.set("Content-Type", "text/html");
-        res.send(`<!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login berhasil</title>
-</head>
-<body>
-    <script>
-        const user = ${userPayload};
-        localStorage.setItem("crowdfund_user", JSON.stringify(user));
-        window.location.href = "/dashboard.html";
-    </script>
-</body>
-</html>`);
-    }
-);
+const createPagesRouter = require("./routes/pages");
+const createAuthRouter = require("./routes/auth");
+const createApiRouter = require("./routes/api");
 
-app.get("/dashboard.html", requirePageAuth, (req, res) => {
-    res.sendFile(path.join(__dirname, "public", "dashboard.html"));
+const pagesRouter = createPagesRouter({ getAuthUser, requirePageAuth });
+const authRouter = createAuthRouter({ passport, ensureGoogleOAuth });
+const apiRouter = createApiRouter({
+    readData,
+    writeData,
+    makeId,
+    normalizeAmount,
+    buildAnalytics,
+    createPaymentTransaction,
+    requireAuth,
+    io
 });
 
-app.get("/buat-campaign.html", requirePageAuth, (req, res) => {
-    res.sendFile(path.join(__dirname, "public", "buat-campaign.html"));
-});
-
+app.use("/", pagesRouter);
+app.use("/", authRouter);
+app.use("/api", apiRouter);
 app.use(express.static(path.join(__dirname, "public")));
-
-app.get("/api/health", (req, res) => {
-    res.json({ status: "ok" });
-});
-
-app.get("/api/analytics", requireAuth, async (req, res) => {
-    const data = await buildAnalytics(req.authUser?.id);
-    res.json(data);
-});
-
-app.get("/api/campaigns", async (req, res) => {
-    const campaigns = await readData("campaigns");
-    res.json(campaigns);
-});
-
-app.get("/api/campaigns/:id", async (req, res) => {
-    const campaigns = await readData("campaigns");
-    const campaign = campaigns.find((item) => item.id === req.params.id);
-    if (!campaign) {
-        res.status(404).json({ message: "Campaign not found" });
-        return;
-    }
-    res.json(campaign);
-});
-
-app.post("/api/campaigns", requireAuth, async (req, res) => {
-    const { title, category, targetAmount, deadline, story, imageUrl, organizer } = req.body;
-
-    if (!title || !category || !targetAmount || !deadline || !story) {
-        res.status(400).json({ message: "Data campaign belum lengkap." });
-        return;
-    }
-
-    const campaigns = await readData("campaigns");
-    const payload = {
-        id: makeId("camp"),
-        title,
-        category,
-        targetAmount: normalizeAmount(targetAmount),
-        currentAmount: 0,
-        deadline,
-        imageUrl: imageUrl || "https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?w=1000&auto=format&fit=crop",
-        story,
-        organizer: organizer || req.authUser?.name || "Penggalang Dana",
-        createdAt: new Date().toISOString()
-    };
-
-    campaigns.push(payload);
-    await writeData("campaigns", campaigns);
-
-    res.status(201).json(payload);
-});
-
-app.put("/api/campaigns/:id", requireAuth, async (req, res) => {
-    const campaigns = await readData("campaigns");
-    const index = campaigns.findIndex((item) => item.id === req.params.id);
-    if (index === -1) {
-        res.status(404).json({ message: "Campaign not found" });
-        return;
-    }
-
-    const updated = {
-        ...campaigns[index],
-        ...req.body
-    };
-
-    campaigns[index] = updated;
-    await writeData("campaigns", campaigns);
-
-    res.json(updated);
-});
-
-app.delete("/api/campaigns/:id", requireAuth, async (req, res) => {
-    const campaigns = await readData("campaigns");
-    const next = campaigns.filter((item) => item.id !== req.params.id);
-    if (next.length === campaigns.length) {
-        res.status(404).json({ message: "Campaign not found" });
-        return;
-    }
-
-    await writeData("campaigns", next);
-    res.json({ success: true });
-});
-
-app.post("/api/auth/register", async (req, res) => {
-    const { name, email, password } = req.body;
-    if (!name || !email || !password) {
-        res.status(400).json({ message: "Data belum lengkap." });
-        return;
-    }
-
-    const users = await readData("users");
-    const exists = users.some((user) => user.email === email);
-    if (exists) {
-        res.status(409).json({ message: "Email sudah terdaftar." });
-        return;
-    }
-
-    const payload = {
-        id: makeId("user"),
-        name,
-        email,
-        password,
-        role: "user",
-        createdAt: new Date().toISOString()
-    };
-
-    users.push(payload);
-    await writeData("users", users);
-
-    res.cookie("auth_user", payload.id, { sameSite: "lax" });
-    res.status(201).json({ user: payload });
-});
-
-app.post("/api/auth/login", async (req, res) => {
-    const { email, password } = req.body;
-    if (!email || !password) {
-        res.status(400).json({ message: "Email dan password wajib diisi." });
-        return;
-    }
-
-    const users = await readData("users");
-    const user = users.find((item) => item.email === email && item.password === password);
-    if (!user) {
-        res.status(401).json({ message: "Email atau password salah." });
-        return;
-    }
-
-    res.cookie("auth_user", user.id, { sameSite: "lax" });
-    res.json({ user });
-});
-
-app.post("/api/donations", requireAuth, async (req, res) => {
-    const { campaignId, amount, donorName, method } = req.body;
-    const normalizedAmount = normalizeAmount(amount);
-
-    if (!campaignId || normalizedAmount < 10000) {
-        res.status(400).json({ message: "Nominal donasi minimal Rp 10.000" });
-        return;
-    }
-
-    const campaigns = await readData("campaigns");
-    const donations = await readData("donations");
-    const transactions = await readData("transactions");
-
-    const campaignIndex = campaigns.findIndex((item) => item.id === campaignId);
-    if (campaignIndex === -1) {
-        res.status(404).json({ message: "Campaign tidak ditemukan" });
-        return;
-    }
-
-    const donationPayload = {
-        id: makeId("don"),
-        campaignId,
-        donorName: donorName || req.authUser?.name || "Hamba Allah",
-        userId: req.authUser?.id || null,
-        amount: normalizedAmount,
-        method: method || "QRIS",
-        createdAt: new Date().toISOString()
-    };
-
-    campaigns[campaignIndex].currentAmount = normalizeAmount(campaigns[campaignIndex].currentAmount) + normalizedAmount;
-
-    donations.push(donationPayload);
-    await writeData("donations", donations);
-    await writeData("campaigns", campaigns);
-
-    const orderId = `DON-${campaignId}-${Date.now()}`;
-    const payment = await createPaymentTransaction({
-        amount: normalizedAmount,
-        orderId,
-        method: donationPayload.method
-    });
-
-    const transactionPayload = {
-        id: makeId("trx"),
-        donationId: donationPayload.id,
-        campaignId,
-        amount: normalizedAmount,
-        method: donationPayload.method,
-        status: payment.status,
-        gateway: payment.gateway,
-        referenceId: payment.referenceId,
-        paymentUrl: payment.paymentUrl || null,
-        orderId,
-        createdAt: new Date().toISOString()
-    };
-
-    transactions.push(transactionPayload);
-    await writeData("transactions", transactions);
-
-    const stats = await buildAnalytics(donationPayload.userId);
-    const updatedCampaign = campaigns[campaignIndex];
-
-    io.emit("donation:new", {
-        userId: donationPayload.userId,
-        donation: donationPayload,
-        campaign: updatedCampaign,
-        stats
-    });
-
-    res.status(201).json({
-        donation: donationPayload,
-        campaign: updatedCampaign,
-        transaction: transactionPayload,
-        stats
-    });
-});
 
 const startServer = async () => {
     await ensureDataFiles();

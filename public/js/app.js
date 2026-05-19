@@ -47,8 +47,9 @@ const getAuthHeaders = () => {
 
 const handleUnauthorized = () => {
     localStorage.removeItem("crowdfund_user");
-    if (!window.location.pathname.endsWith("login.html")) {
-        window.location.href = "login.html";
+    const path = window.location.pathname.replace(/\/$/, "") || "/";
+    if (path !== "/login") {
+        window.location.href = "/login";
     }
 };
 
@@ -193,7 +194,7 @@ const updateCampaignCard = (card, campaign) => {
     if (progressEl) progressEl.style.width = `${Math.min(progress, 100)}%`;
 
     linkEls.forEach((link) => {
-        link.setAttribute("href", `detail-campaign.html?id=${campaign.id}`);
+        link.setAttribute("href", `/campaign/${campaign.id}`);
     });
 };
 
@@ -213,7 +214,7 @@ const syncDonationButtons = () => {
         button.addEventListener("click", () => {
             if (!isAuthenticated()) {
                 showAlert("Oops!", "Silakan login untuk melakukan donasi.", "warning");
-                window.location.href = "login.html";
+                window.location.href = "/login";
                 return;
             }
             openDonationModal(button.dataset.campaignId);
@@ -279,10 +280,10 @@ const showToast = (title, message) => {
 };
 
 const guardProtectedRoutes = () => {
-    const protectedPages = ["dashboard.html", "buat-campaign.html"];
-    const currentPage = window.location.pathname.split("/").pop();
-    if (protectedPages.includes(currentPage) && !isAuthenticated()) {
-        window.location.href = "login.html";
+    const protectedPages = ["/dashboard", "/buat-campaign"];
+    const currentPath = window.location.pathname.replace(/\/$/, "") || "/";
+    if (protectedPages.includes(currentPath) && !isAuthenticated()) {
+        window.location.href = "/login";
     }
 };
 
@@ -326,7 +327,7 @@ window.setNominal = (amount) => {
 window.processDonation = async () => {
     if (!isAuthenticated()) {
         showAlert("Oops!", "Silakan login untuk melakukan donasi.", "warning");
-        window.location.href = "login.html";
+        window.location.href = "/login";
         return;
     }
     const amountValue = parseInt(document.getElementById("inputNominal")?.value, 10);
@@ -441,7 +442,7 @@ const initCampaignForm = () => {
     if (!form) return;
 
     if (!isAuthenticated()) {
-        window.location.href = "login.html";
+        window.location.href = "/login";
         return;
     }
 
@@ -467,7 +468,7 @@ const initCampaignForm = () => {
 
             showAlert("Berhasil", "Campaign berhasil dibuat.", "success");
             form.reset();
-            window.location.href = "dashboard.html";
+            window.location.href = "/dashboard";
         } catch (error) {
             showAlert("Gagal", error.message || "Gagal membuat campaign.", "error");
         }
@@ -493,7 +494,7 @@ const initAuthForms = () => {
                 if (response.user) {
                     localStorage.setItem("crowdfund_user", JSON.stringify(response.user));
                 }
-                window.location.href = "dashboard.html";
+                window.location.href = "/dashboard";
             } catch (error) {
                 showAlert("Gagal", error.message || "Login gagal.", "error");
             }
@@ -519,7 +520,7 @@ const initAuthForms = () => {
                 if (response.user) {
                     localStorage.setItem("crowdfund_user", JSON.stringify(response.user));
                 }
-                window.location.href = "dashboard.html";
+                window.location.href = "/dashboard";
             } catch (error) {
                 showAlert("Gagal", error.message || "Registrasi gagal.", "error");
             }
@@ -532,7 +533,13 @@ const initCampaignDetail = async () => {
     if (!titleEl) return;
 
     const params = new URLSearchParams(window.location.search);
-    const campaignId = params.get("id");
+    let campaignId = params.get("id");
+    if (!campaignId) {
+        const parts = window.location.pathname.split("/").filter(Boolean);
+        if (parts[0] === "campaign" && parts[1]) {
+            campaignId = parts[1];
+        }
+    }
     if (!campaignId) return;
 
     try {

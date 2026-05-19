@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detail Campaign - CrowdFund</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="/js/tailwind-config.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="bg-slate-50 font-sans text-slate-800 antialiased overflow-x-hidden pt-20">
+
+    <%- include("partials/public-nav") %>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <div class="flex items-center text-sm text-slate-500">
+            <a href="/" class="hover:text-primary-600">Beranda</a>
+            <i class="ph ph-caret-right mx-2 text-xs"></i>
+            <span class="text-slate-900 font-medium" id="campaignBreadcrumb">Bantu Biaya Operasi Jantung Dek Nisa</span>
+        </div>
+    </div>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20">
+        <div class="flex flex-col lg:flex-row gap-8">
+            <div class="w-full lg:w-2/3">
+                <h1 class="text-3xl md:text-4xl font-bold text-slate-900 leading-tight mb-4" id="campaignTitle">Bantu Biaya Operasi Jantung Dek Nisa</h1>
+
+                <div class="w-full h-80 sm:h-[400px] rounded-2xl overflow-hidden mb-8">
+                    <img src="https://images.unsplash.com/photo-1532938911079-1b06ac7ceec7?w=1000&auto=format&fit=crop" class="w-full h-full object-cover" id="campaignImage">
+                </div>
+
+                <div class="bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-slate-100 mb-8">
+                    <h2 class="text-xl font-bold text-slate-900 mb-4">Cerita Penggalangan Dana</h2>
+                    <div class="prose max-w-none text-slate-600 text-sm leading-relaxed" id="campaignStory">
+                        <p>Halo Orang Baik, perkenalkan ini Nisa (5 tahun). Sejak lahir, Nisa didiagnosis mengalami kelainan jantung bawaan yang membuatnya mudah sesak napas dan kulitnya membiru jika menangis terlalu lama.</p>
+                        <p>Kondisi ekonomi keluarga yang pas-pasan membuat Nisa belum bisa mendapatkan tindakan operasi yang seharusnya dilakukan secepat mungkin. Ayah Nisa hanya seorang buruh harian lepas, sedangkan ibunya mengurus Nisa di rumah.</p>
+                        <p>Mari kita bantu Nisa untuk mendapatkan senyum sehatnya kembali. Bantuan sekecil apapun dari teman-teman akan sangat berarti bagi kelangsungan hidup Nisa.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="w-full lg:w-1/3">
+                <div class="bg-white rounded-2xl p-6 shadow-xl shadow-slate-200/50 border border-slate-100 sticky top-24">
+                    <p class="text-sm text-slate-500 font-medium mb-1">Dana Terkumpul</p>
+                    <h3 class="text-3xl font-bold text-slate-900 mb-2" id="campaignRaised">Rp 65.000.000</h3>
+                    <p class="text-sm text-slate-500 mb-4">dari target <span class="font-semibold text-slate-700" id="campaignTarget">Rp 100.000.000</span></p>
+
+                    <div class="w-full bg-slate-100 rounded-full h-2.5 mb-6 overflow-hidden">
+                        <div class="bg-primary-500 h-2.5 rounded-full" style="width: 65%" id="campaignProgress"></div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4 mb-6 text-center">
+                        <div class="bg-slate-50 rounded-xl p-3">
+                            <p class="text-xl font-bold text-slate-900" id="campaignDonors">420</p>
+                            <p class="text-xs text-slate-500">Donatur</p>
+                        </div>
+                        <div class="bg-red-50 rounded-xl p-3">
+                            <p class="text-xl font-bold text-red-600" id="campaignDaysLeft">3</p>
+                            <p class="text-xs text-red-500">Hari Lagi</p>
+                        </div>
+                    </div>
+
+                    <a href="<%= currentUser ? '/dashboard' : '/login' %>" class="block w-full bg-primary-600 hover:bg-primary-700 text-white font-bold py-3.5 rounded-xl text-center shadow-sm transition-colors mb-4">
+                        Donasi Sekarang
+                    </a>
+
+                    <div class="border-t border-slate-100 pt-4 mt-2">
+                        <p class="text-xs text-slate-400 uppercase tracking-wider mb-3">Penggalang Dana</p>
+                        <div class="flex items-center space-x-3">
+                            <div class="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-sm">YZ</div>
+                            <div>
+                                <p class="text-sm font-semibold text-slate-900 flex items-center">
+                                    <span id="campaignOrganizer">Yayasan Zakat</span> <i class="ph-fill ph-check-circle text-blue-500 ml-1"></i>
+                                </p>
+                                <p class="text-xs text-slate-500">Terverifikasi</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/app.js" defer></script>
+</body>
+</html>

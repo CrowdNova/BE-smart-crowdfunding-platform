@@ -1,0 +1,26 @@
+<% const userName = currentUser && currentUser.name ? currentUser.name : "Pengguna"; %>
+<% const initials = userName.trim().split(/\s+/).slice(0, 2).map((part) => part[0]?.toUpperCase() || "").join("") || "U"; %>
+<header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 sm:px-6 lg:px-8 z-10 shadow-sm">
+    <button class="md:hidden p-2 text-slate-500 hover:bg-slate-100 rounded-lg">
+        <i class="ph ph-list text-2xl"></i>
+    </button>
+
+    <div class="hidden sm:flex items-center bg-slate-100 rounded-lg px-3 py-2 w-96 transition-all focus-within:ring-2 focus-within:ring-primary-500 focus-within:bg-white">
+        <i class="ph ph-magnifying-glass text-slate-400 text-lg"></i>
+        <input type="text" placeholder="Cari campaign atau donatur..." class="bg-transparent border-none focus:outline-none ml-2 w-full text-sm text-slate-700 placeholder-slate-400">
+    </div>
+
+    <div class="flex items-center space-x-4">
+        <button class="relative p-2 text-slate-500 hover:bg-slate-100 rounded-full transition-colors">
+            <i class="ph ph-bell text-xl"></i>
+            <span class="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
+        </button>
+        <a href="/logout" class="text-sm font-semibold text-slate-600 hover:text-primary-600">Logout</a>
+        <div class="h-8 w-px bg-slate-200"></div>
+        <button class="flex items-center space-x-2 p-1 rounded-full hover:bg-slate-50 transition-colors">
+            <div class="w-8 h-8 rounded-full bg-primary-600 flex items-center justify-center text-white font-bold text-xs"><%= initials %></div>
+            <span class="text-sm font-medium text-slate-700 hidden sm:block"><%= userName %></span>
+            <i class="ph ph-caret-down text-slate-400 text-xs hidden sm:block"></i>
+        </button>
+    </div>
+</header>
