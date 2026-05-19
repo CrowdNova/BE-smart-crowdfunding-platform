@@ -11,7 +11,18 @@
     <link rel="stylesheet" href="/css/style.css">
 </head>
 <body class="bg-slate-50 font-sans text-slate-800 antialiased overflow-x-hidden">
-
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        primary: { 50: '#f0fdf4', 100: '#dcfce7', 500: '#22c55e', 600: '#16a34a', 700: '#15803d' }
+                    }
+                }
+            }
+        }
+    </script>
     <%- include("partials/public-nav") %>
 
     <section class="pt-28 pb-20 lg:pt-36 lg:pb-28 bg-gradient-to-b from-primary-50 to-slate-50">

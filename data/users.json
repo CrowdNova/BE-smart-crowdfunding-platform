@@ -6,5 +6,15 @@
     "password": "admin123",
     "role": "admin",
     "createdAt": "2026-05-19T00:00:00.000Z"
+  },
+  {
+    "id": "user_1779164689468_w5phql",
+    "name": "Kiro Fyzu",
+    "email": "kirofyzu@gmail.com",
+    "password": "",
+    "role": "user",
+    "provider": "google",
+    "providerId": "105461277758639660331",
+    "createdAt": "2026-05-19T04:24:49.468Z"
   }
 ]
