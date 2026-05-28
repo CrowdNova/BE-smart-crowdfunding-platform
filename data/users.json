@@ -16,5 +16,15 @@
     "provider": "google",
     "providerId": "105461277758639660331",
     "createdAt": "2026-05-19T04:24:49.468Z"
+  },
+  {
+    "id": "user_1779177484589_b9d2wc",
+    "name": "Kom Infokan",
+    "email": "infokankom@gmail.com",
+    "password": "",
+    "role": "user",
+    "provider": "google",
+    "providerId": "102481075180114236097",
+    "createdAt": "2026-05-19T07:58:04.589Z"
   }
 ]

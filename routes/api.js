@@ -8,7 +8,9 @@ const createApiRouter = ({
     buildAnalytics,
     createPaymentTransaction,
     requireAuth,
-    io
+    io,
+    createQris,
+    checkStatus
 }) => {
     const router = express.Router();
 
@@ -17,7 +19,7 @@ const createApiRouter = ({
     });
 
     router.get("/analytics", requireAuth, async (req, res) => {
-        const data = await buildAnalytics(req.authUser?.id);
+        const data = await buildAnalytics();
         res.json(data);
     });
 
@@ -33,7 +35,15 @@ const createApiRouter = ({
             res.status(404).json({ message: "Campaign not found" });
             return;
         }
-        res.json(campaign);
+
+        // Count successful donations
+        const donations = await readData("donations");
+        const donorsCount = donations.filter((d) => d.campaignId === campaign.id).length;
+
+        res.json({
+            ...campaign,
+            donorsCount
+        });
     });
 
     router.post("/campaigns", requireAuth, async (req, res) => {
@@ -153,7 +163,6 @@ const createApiRouter = ({
         }
 
         const campaigns = await readData("campaigns");
-        const donations = await readData("donations");
         const transactions = await readData("transactions");
 
         const campaignIndex = campaigns.findIndex((item) => item.id === campaignId);
@@ -162,62 +171,145 @@ const createApiRouter = ({
             return;
         }
 
-        const donationPayload = {
-            id: makeId("don"),
-            campaignId,
-            donorName: donorName || req.authUser?.name || "Hamba Allah",
-            userId: req.authUser?.id || null,
-            amount: normalizedAmount,
-            method: method || "QRIS",
-            createdAt: new Date().toISOString()
-        };
+        const orderId = 'CF-' + Math.random().toString(36).substring(2, 10).toUpperCase();
 
-        campaigns[campaignIndex].currentAmount = normalizeAmount(campaigns[campaignIndex].currentAmount) + normalizedAmount;
-
-        donations.push(donationPayload);
-        await writeData("donations", donations);
-        await writeData("campaigns", campaigns);
-
-        const orderId = `DON-${campaignId}-${Date.now()}`;
-        const payment = await createPaymentTransaction({
-            amount: normalizedAmount,
-            orderId,
-            method: donationPayload.method
-        });
+        // Call the real Pakasir QRIS API or fallback to demoMode
+        let payment = null;
+        let demoMode = false;
+        try {
+            payment = await createQris(orderId, normalizedAmount);
+        } catch (error) {
+            console.warn("Pakasir API error, falling back to demo mode:", error.message);
+            demoMode = true;
+            payment = {
+                order_id: orderId,
+                amount: normalizedAmount,
+                payment_url: `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=CROWDFUND-DEMO-PAYMENT-${orderId}`,
+                qr_image: `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=CROWDFUND-DEMO-PAYMENT-${orderId}`,
+                status: "pending"
+            };
+        }
 
         const transactionPayload = {
             id: makeId("trx"),
-            donationId: donationPayload.id,
             campaignId,
             amount: normalizedAmount,
-            method: donationPayload.method,
-            status: payment.status,
-            gateway: payment.gateway,
-            referenceId: payment.referenceId,
-            paymentUrl: payment.paymentUrl || null,
+            method: method || "qris",
+            status: "pending",
+            gateway: "pakasir",
+            referenceId: payment.order_id || orderId,
+            paymentUrl: payment.payment_url || null,
+            qrImage: payment.qr_image || payment.payment_url || null,
             orderId,
+            donorName: donorName || req.authUser?.name || "Hamba Allah",
+            userId: req.authUser?.id || null,
+            demoMode,
             createdAt: new Date().toISOString()
         };
 
         transactions.push(transactionPayload);
         await writeData("transactions", transactions);
 
-        const stats = await buildAnalytics(donationPayload.userId);
-        const updatedCampaign = campaigns[campaignIndex];
-
-        io.emit("donation:new", {
-            userId: donationPayload.userId,
-            donation: donationPayload,
-            campaign: updatedCampaign,
-            stats
-        });
-
         res.status(201).json({
-            donation: donationPayload,
-            campaign: updatedCampaign,
-            transaction: transactionPayload,
-            stats
+            transaction: transactionPayload
         });
+    });
+
+    router.get("/transactions/:orderId/check", requireAuth, async (req, res) => {
+        const { orderId } = req.params;
+        const transactions = await readData("transactions");
+        const trxIndex = transactions.findIndex((t) => t.orderId === orderId);
+
+        if (trxIndex === -1) {
+            res.status(404).json({ message: "Transaksi tidak ditemukan." });
+            return;
+        }
+
+        const transaction = transactions[trxIndex];
+
+        if (transaction.status === "completed" || transaction.status === "paid") {
+            const campaigns = await readData("campaigns");
+            const campaign = campaigns.find((c) => c.id === transaction.campaignId);
+            const stats = await buildAnalytics();
+            res.json({
+                status: "completed",
+                transaction,
+                campaign,
+                stats
+            });
+            return;
+        }
+
+        let isPaid = false;
+        let pakasirTrx = null;
+
+        if (transaction.demoMode) {
+            if (req.query.simulateSuccess === "true") {
+                isPaid = true;
+            }
+        } else {
+            try {
+                pakasirTrx = await checkStatus(orderId, transaction.amount);
+                const statusStr = (pakasirTrx?.status || "").toLowerCase();
+                if (statusStr === "paid" || statusStr === "success" || statusStr === "completed") {
+                    isPaid = true;
+                }
+            } catch (error) {
+                console.error("Error checking Pakasir transaction status:", error.message);
+            }
+        }
+
+        if (isPaid) {
+            transaction.status = "completed";
+            transaction.paidAt = new Date().toISOString();
+
+            const donations = await readData("donations");
+            const donationPayload = {
+                id: makeId("don"),
+                campaignId: transaction.campaignId,
+                donorName: transaction.donorName,
+                userId: transaction.userId,
+                amount: transaction.amount,
+                method: transaction.method,
+                createdAt: new Date().toISOString()
+            };
+            donations.push(donationPayload);
+            await writeData("donations", donations);
+
+            transaction.donationId = donationPayload.id;
+
+            const campaigns = await readData("campaigns");
+            const campaignIndex = campaigns.findIndex((c) => c.id === transaction.campaignId);
+            let updatedCampaign = null;
+            if (campaignIndex !== -1) {
+                campaigns[campaignIndex].currentAmount = normalizeAmount(campaigns[campaignIndex].currentAmount) + transaction.amount;
+                await writeData("campaigns", campaigns);
+                updatedCampaign = campaigns[campaignIndex];
+            }
+
+            await writeData("transactions", transactions);
+
+            const stats = await buildAnalytics();
+
+            io.emit("donation:new", {
+                userId: transaction.userId,
+                donation: donationPayload,
+                campaign: updatedCampaign,
+                stats
+            });
+
+            res.json({
+                status: "completed",
+                transaction,
+                campaign: updatedCampaign,
+                stats
+            });
+        } else {
+            res.json({
+                status: "pending",
+                transaction
+            });
+        }
     });
 
     return router;

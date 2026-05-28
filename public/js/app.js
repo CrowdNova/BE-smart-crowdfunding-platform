@@ -198,36 +198,81 @@ const updateCampaignCard = (card, campaign) => {
     });
 };
 
-const syncCampaignCards = () => {
-    const cards = document.querySelectorAll("[data-campaign-card]");
-    if (!cards.length) return;
+const renderCampaignGrid = () => {
+    const grid = document.getElementById("campaignGrid");
+    if (!grid) return;
 
-    cards.forEach((card, index) => {
-        const cardId = card.dataset.campaignId;
-        const campaign = cardId ? getCampaignById(cardId) : state.campaigns[index];
-        updateCampaignCard(card, campaign);
-    });
+    if (!state.campaigns || state.campaigns.length === 0) {
+        grid.innerHTML = `
+            <div class="col-span-full text-center py-12 bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col items-center justify-center">
+                <i class="ph ph-megaphone text-4xl text-slate-300 mb-2"></i>
+                <p class="text-slate-500 font-medium">Belum ada campaign aktif.</p>
+            </div>
+        `;
+        return;
+    }
+
+    grid.innerHTML = state.campaigns.map((campaign) => {
+        const progress = campaign.targetAmount
+            ? Math.min((campaign.currentAmount / campaign.targetAmount) * 100, 100)
+            : 0;
+
+        let colorClass = "text-primary-600";
+        let progressBg = "bg-primary-500";
+        let btnClass = "bg-primary-50 hover:bg-primary-100 text-primary-700 border-primary-200";
+
+        if (campaign.category === "Pendidikan") {
+            colorClass = "text-blue-600";
+            progressBg = "bg-blue-500";
+            btnClass = "bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200";
+        } else if (campaign.category === "Bantuan Medis") {
+            colorClass = "text-rose-600";
+            progressBg = "bg-rose-500";
+            btnClass = "bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-200";
+        }
+
+        return `
+            <div class="bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100 flex flex-col" data-campaign-card data-campaign-id="${campaign.id}">
+                <a class="h-48 bg-slate-200 cursor-pointer block" href="/campaign/${campaign.id}">
+                    <img src="${campaign.imageUrl || 'https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?w=600&auto=format&fit=crop'}" class="w-full h-full object-cover hover:scale-105 transition-transform duration-500">
+                </a>
+                <div class="p-5 flex-1 flex flex-col">
+                    <div class="text-xs font-medium ${colorClass} mb-2">${escapeHtml(campaign.category || 'Campaign')}</div>
+                    <a class="font-bold text-slate-900 mb-2 hover:text-primary-600 cursor-pointer transition-colors" href="/campaign/${campaign.id}">${escapeHtml(campaign.title)}</a>
+                    <div class="mt-auto">
+                        <div class="w-full bg-slate-100 rounded-full h-2 mb-2 overflow-hidden">
+                            <div class="${progressBg} h-2 rounded-full" style="width: ${progress}%"></div>
+                        </div>
+                        <div class="flex justify-between text-sm mb-4">
+                            <span class="font-bold">${formatRupiah(campaign.currentAmount || 0)}</span>
+                            <span class="text-slate-400">Target ${formatRupiah(campaign.targetAmount || 0)}</span>
+                        </div>
+                        <button class="w-full ${btnClass} font-semibold py-2.5 rounded-lg border transition-colors" onclick="openDonationModal('${campaign.id}')">
+                            Donasi Sekarang
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join("");
+};
+
+const syncCampaignCards = () => {
+    renderCampaignGrid();
 };
 
 const syncDonationButtons = () => {
-    document.querySelectorAll("[data-action='donate']").forEach((button) => {
-        button.addEventListener("click", () => {
-            if (!isAuthenticated()) {
-                showAlert("Oops!", "Silakan login untuk melakukan donasi.", "warning");
-                window.location.href = "/login";
-                return;
-            }
-            openDonationModal(button.dataset.campaignId);
-        });
-    });
+    // Buttons are dynamically handled via onclick on campaign cards.
 };
 
 const updateStatsUI = (stats) => {
     const totalDanaEl = document.getElementById("stat-total-dana");
     const totalDonaturEl = document.getElementById("stat-total-donatur");
+    const activeCampaignsEl = document.getElementById("stat-campaign-aktif");
 
     if (totalDanaEl) totalDanaEl.textContent = formatRupiah(stats.totalDana || 0);
     if (totalDonaturEl) totalDonaturEl.textContent = (stats.totalDonatur || 0).toLocaleString("id-ID");
+    if (activeCampaignsEl) activeCampaignsEl.textContent = (stats.activeCampaigns || 0).toString();
 };
 
 const addRecentTransaction = (donation) => {
@@ -324,6 +369,107 @@ window.setNominal = (amount) => {
     if (inputNominal) inputNominal.value = amount;
 };
 
+let qrisPollInterval = null;
+let currentQrisOrderId = null;
+
+window.openQrisPaymentModal = (transaction, campaignTitle) => {
+    currentQrisOrderId = transaction.orderId;
+    
+    const amountEl = document.getElementById("qrisModalAmount");
+    if (amountEl) amountEl.textContent = formatRupiah(transaction.amount);
+
+    const campaignEl = document.getElementById("qrisModalCampaign");
+    if (campaignEl) campaignEl.textContent = campaignTitle || "Pembayaran Donasi";
+
+    const imageEl = document.getElementById("qrisModalImage");
+    if (imageEl) {
+        document.getElementById("qrisModalLoader").classList.remove("hidden");
+        imageEl.src = transaction.qrImage || transaction.paymentUrl;
+    }
+
+    const demoBadge = document.getElementById("qrisDemoBadge");
+    const demoBtn = document.getElementById("qrisDemoBtn");
+
+    if (transaction.demoMode) {
+        if (demoBadge) demoBadge.classList.remove("hidden");
+        if (demoBtn) demoBtn.classList.remove("hidden");
+    } else {
+        if (demoBadge) demoBadge.classList.add("hidden");
+        if (demoBtn) demoBtn.classList.add("hidden");
+    }
+
+    const modal = document.getElementById("qrisPaymentModal");
+    if (modal) {
+        modal.classList.remove("hidden");
+        setTimeout(() => document.getElementById("qrisModalContent")?.classList.remove("scale-95"), 10);
+    }
+
+    // Start polling
+    startQrisPolling(transaction.orderId, transaction.amount);
+};
+
+window.closeQrisPaymentModal = () => {
+    stopQrisPolling();
+    const content = document.getElementById("qrisModalContent");
+    if (content) content.classList.add("scale-95");
+
+    const modal = document.getElementById("qrisPaymentModal");
+    if (modal) {
+        setTimeout(() => modal.classList.add("hidden"), 200);
+    }
+};
+
+const startQrisPolling = (orderId, amount) => {
+    stopQrisPolling();
+    qrisPollInterval = setInterval(async () => {
+        try {
+            const res = await fetchJson(`/api/transactions/${orderId}/check`);
+            if (res.status === "completed") {
+                stopQrisPolling();
+                closeQrisPaymentModal();
+
+                showAlert(
+                    "Donasi Berhasil!",
+                    `Terima kasih! Donasi Anda sebesar ${formatRupiah(amount)} berhasil terverifikasi.`,
+                    "success"
+                );
+
+                // Update UI state
+                if (res.stats) {
+                    updateStatsUI(res.stats);
+                    if (res.stats.chart) setChartData(res.stats.chart);
+                    if (Array.isArray(res.stats.recentDonations)) {
+                        const list = document.getElementById("recent-transactions-list");
+                        if (list) list.innerHTML = "";
+                        res.stats.recentDonations.forEach(addRecentTransaction);
+                    }
+                }
+
+                // Reload campaigns to update progress
+                loadCampaigns();
+            }
+        } catch (err) {
+            console.error("Error polling transaction:", err.message);
+        }
+    }, 3000);
+};
+
+const stopQrisPolling = () => {
+    if (qrisPollInterval) {
+        clearInterval(qrisPollInterval);
+        qrisPollInterval = null;
+    }
+};
+
+window.simulateQrisSuccess = async () => {
+    if (!currentQrisOrderId) return;
+    try {
+        await fetchJson(`/api/transactions/${currentQrisOrderId}/check?simulateSuccess=true`);
+    } catch (err) {
+        showAlert("Gagal", "Gagal mensimulasikan pembayaran.", "error");
+    }
+};
+
 window.processDonation = async () => {
     if (!isAuthenticated()) {
         showAlert("Oops!", "Silakan login untuk melakukan donasi.", "warning");
@@ -331,7 +477,7 @@ window.processDonation = async () => {
         return;
     }
     const amountValue = parseInt(document.getElementById("inputNominal")?.value, 10);
-    const method = document.getElementById("paymentMethod")?.value || "QRIS";
+    const method = document.getElementById("paymentMethod")?.value || "qris";
 
     if (!amountValue || amountValue < 10000) {
         showAlert("Oops!", "Minimal donasi adalah Rp 10.000", "warning");
@@ -343,12 +489,15 @@ window.processDonation = async () => {
         return;
     }
 
+    const campaign = getCampaignById(state.currentCampaignId);
+    const campaignTitle = campaign ? campaign.title : "Pembayaran Donasi";
+
     closeDonationModal();
 
     if (window.Swal) {
         Swal.fire({
-            title: "Memproses Pembayaran...",
-            text: `Metode: ${method}`,
+            title: "Menyiapkan Pembayaran...",
+            text: "Mohon tunggu sebentar...",
             allowOutsideClick: false,
             showConfirmButton: false,
             didOpen: () => Swal.showLoading()
@@ -369,33 +518,10 @@ window.processDonation = async () => {
 
         if (window.Swal) Swal.close();
 
-        if (payload.stats) {
-            updateStatsUI(payload.stats);
-            if (payload.stats.chart) setChartData(payload.stats.chart);
-        }
-
-        if (payload.campaign) {
-            const index = state.campaigns.findIndex((item) => item.id === payload.campaign.id);
-            if (index !== -1) state.campaigns[index] = payload.campaign;
-            syncCampaignCards();
-        }
-
-        if (payload.donation) {
-            addRecentTransaction(payload.donation);
-        }
-
-        const paymentUrl = payload.transaction?.paymentUrl;
-        if (paymentUrl && window.Swal) {
-            Swal.fire({
-                title: "Lanjutkan Pembayaran",
-                html: `<a href="${paymentUrl}" target="_blank" rel="noopener">Buka link pembayaran</a>`,
-                icon: "info",
-                confirmButtonText: "Tutup"
-            });
-        } else if (paymentUrl) {
-            showAlert("Lanjutkan Pembayaran", `Buka link: ${paymentUrl}`, "info");
+        if (payload.transaction) {
+            openQrisPaymentModal(payload.transaction, campaignTitle);
         } else {
-            showToast("Berhasil!", `Donasi ${formatRupiah(amountValue)} diterima.`);
+            showAlert("Gagal", "Gagal memproses transaksi.", "error");
         }
     } catch (error) {
         if (window.Swal) Swal.close();
@@ -425,13 +551,17 @@ const loadAnalytics = async () => {
 };
 
 const loadCampaigns = async () => {
-    const cards = document.querySelectorAll("[data-campaign-card]");
-    if (!cards.length && !document.getElementById("campaignTitle")) return;
+    const grid = document.getElementById("campaignGrid");
+    if (!grid && !document.getElementById("campaignTitle")) return;
 
     try {
         const campaigns = await fetchJson("/api/campaigns");
         state.campaigns = Array.isArray(campaigns) ? campaigns : [];
-        syncCampaignCards();
+        if (grid) {
+            renderCampaignGrid();
+        } else {
+            initCampaignDetail();
+        }
     } catch (error) {
         // Fallback silently if server not available.
     }
@@ -591,10 +721,6 @@ const initRealtime = () => {
 
     const socket = window.io();
     socket.on("donation:new", (payload) => {
-        const currentUser = getCurrentUser();
-        if (payload.userId && currentUser?.id && payload.userId !== currentUser.id) {
-            return;
-        }
         if (payload.stats) {
             updateStatsUI(payload.stats);
             if (payload.stats.chart) setChartData(payload.stats.chart);
@@ -606,7 +732,9 @@ const initRealtime = () => {
             syncCampaignCards();
         }
 
-        if (payload.donation) addRecentTransaction(payload.donation);
+        if (payload.donation) {
+            addRecentTransaction(payload.donation);
+        }
     });
 };
 

@@ -8,6 +8,7 @@ const passport = require("passport");
 const GoogleStrategy = require("passport-google-oauth20").Strategy;
 const dotenv = require("dotenv");
 dotenv.config();
+const axios = require("axios");
 
 let PakasirClient = null;
 try {
@@ -360,22 +361,19 @@ const buildAnalytics = async (userId) => {
     const campaigns = await readData("campaigns");
     const donations = await readData("donations");
 
-    const filteredDonations = userId
-        ? donations.filter((donation) => donation.userId === userId)
-        : donations;
-
-    const totalDana = userId
-        ? filteredDonations.reduce((sum, donation) => sum + normalizeAmount(donation.amount), 0)
-        : campaigns.reduce((sum, item) => sum + normalizeAmount(item.currentAmount), 0);
-    const totalDonatur = filteredDonations.length;
-    const recentDonations = [...filteredDonations]
+    // Compute global analytics for the overview dashboard!
+    const totalDana = donations.reduce((sum, donation) => sum + normalizeAmount(donation.amount), 0);
+    const totalDonatur = donations.length;
+    const activeCampaigns = campaigns.length;
+    const recentDonations = [...donations]
         .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
         .slice(0, 5);
 
     return {
         totalDana,
         totalDonatur,
-        chart: buildChartData(filteredDonations),
+        activeCampaigns,
+        chart: buildChartData(donations),
         recentDonations
     };
 };
@@ -418,6 +416,35 @@ const createPaymentTransaction = async ({ amount, orderId, method }) => {
     };
 };
 
+async function createQris(orderId, amount) {
+    try {
+        const res = await axios.post(
+            'https://app.pakasir.com/api/transactioncreate/qris',
+            {
+                project: PAKASIR_SLUG,
+                order_id: orderId,
+                amount,
+                api_key: PAKASIR_API_KEY,
+            },
+            { headers: { 'Content-Type': 'application/json' } }
+        );
+
+        if (!res.data?.payment) throw new Error('Gagal membuat QRIS.');
+        return res.data.payment;
+    } catch (e) {
+        throw new Error('Gagal membuat QRIS: ' + e.message);
+    }
+}
+
+async function checkStatus(orderId, amount) {
+    try {
+        const res = await axios.get(`https://app.pakasir.com/api/transactiondetail?project=${PAKASIR_SLUG}&amount=${amount}&order_id=${orderId}&api_key=${PAKASIR_API_KEY}`);
+        return res.data.transaction;
+    } catch (e) {
+        throw new Error('Gagal mengecek status QRIS: ' + e.message);
+    }
+}
+
 app.use(cors());
 app.use(express.json({ limit: "1mb" }));
 app.use(passport.initialize());
@@ -439,7 +466,9 @@ const apiRouter = createApiRouter({
     buildAnalytics,
     createPaymentTransaction,
     requireAuth,
-    io
+    io,
+    createQris,
+    checkStatus
 });
 
 app.use("/", pagesRouter);

@@ -81,8 +81,8 @@
                         <div class="flex justify-between items-start">
                             <div>
                                 <p class="text-sm font-medium text-slate-500 mb-1">Campaign Aktif</p>
-                                <h3 class="text-3xl font-bold text-slate-900 mb-2">12</h3>
-                                <div class="text-sm text-slate-500">2 menunggu verifikasi</div>
+                                <h3 class="text-3xl font-bold text-slate-900 mb-2" id="stat-campaign-aktif">0</h3>
+                                <div class="text-sm text-slate-500" id="stat-campaign-sub">Terverifikasi</div>
                             </div>
                             <div class="w-12 h-12 bg-amber-50 rounded-xl flex items-center justify-center text-amber-600">
                                 <i class="ph ph-megaphone text-2xl"></i>
@@ -129,48 +129,10 @@
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="campaignGrid">
-                    <div class="bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100 flex flex-col" data-campaign-card data-campaign-id="1">
-                        <a class="h-48 bg-slate-200 cursor-pointer block" data-campaign-link href="/campaign/1">
-                            <img src="https://images.unsplash.com/photo-1532938911079-1b06ac7ceec7?w=600&auto=format&fit=crop&q=60" class="w-full h-full object-cover hover:scale-105 transition-transform duration-500" data-campaign-image>
-                        </a>
-                        <div class="p-5 flex-1 flex flex-col">
-                            <div class="text-xs font-medium text-primary-600 mb-2" data-campaign-category>Bantuan Medis</div>
-                            <a class="font-bold text-slate-900 mb-2 hover:text-primary-600 cursor-pointer transition-colors" data-campaign-title data-campaign-link href="/campaign/1">Bantu Biaya Operasi Jantung Dek Nisa</a>
-                            <div class="mt-auto">
-                                <div class="w-full bg-slate-100 rounded-full h-2 mb-2 overflow-hidden">
-                                    <div class="bg-primary-500 h-2 rounded-full" id="progress-bar-1" data-campaign-progress style="width: 65%"></div>
-                                </div>
-                                <div class="flex justify-between text-sm mb-4">
-                                    <span class="font-bold" id="terkumpul-1" data-campaign-current>Rp 65.000.000</span>
-                                    <span class="text-slate-400" data-campaign-target>Target Rp 100jt</span>
-                                </div>
-                                <button class="w-full bg-primary-50 hover:bg-primary-100 text-primary-700 font-semibold py-2.5 rounded-lg border border-primary-200 transition-colors" data-action="donate" data-campaign-id="1">
-                                    Simulasi Donasi
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100 flex flex-col" data-campaign-card data-campaign-id="2">
-                        <a class="h-48 bg-slate-200 cursor-pointer block" data-campaign-link href="/campaign/2">
-                            <img src="https://images.unsplash.com/photo-1509062522246-3755977927d7?w=600&auto=format&fit=crop&q=60" class="w-full h-full object-cover hover:scale-105 transition-transform duration-500" data-campaign-image>
-                        </a>
-                        <div class="p-5 flex-1 flex flex-col">
-                            <div class="text-xs font-medium text-blue-600 mb-2" data-campaign-category>Pendidikan</div>
-                            <a class="font-bold text-slate-900 mb-2 hover:text-primary-600 cursor-pointer transition-colors" data-campaign-title data-campaign-link href="/campaign/2">Renovasi SD Pelosok Desa</a>
-                            <div class="mt-auto">
-                                <div class="w-full bg-slate-100 rounded-full h-2 mb-2 overflow-hidden">
-                                    <div class="bg-blue-500 h-2 rounded-full" id="progress-bar-2" data-campaign-progress style="width: 42%"></div>
-                                </div>
-                                <div class="flex justify-between text-sm mb-4">
-                                    <span class="font-bold" id="terkumpul-2" data-campaign-current>Rp 21.000.000</span>
-                                    <span class="text-slate-400" data-campaign-target>Target Rp 50jt</span>
-                                </div>
-                                <button class="w-full bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold py-2.5 rounded-lg border border-blue-200 transition-colors" data-action="donate" data-campaign-id="2">
-                                    Simulasi Donasi
-                                </button>
-                            </div>
-                        </div>
+                    <!-- Campaign cards are rendered dynamically via JavaScript in app.js -->
+                    <div class="col-span-full text-center py-12 bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col items-center justify-center">
+                        <div class="animate-spin rounded-full h-8 w-8 border-4 border-primary-500 border-t-transparent mb-2"></div>
+                        <p class="text-slate-500 font-medium">Memuat campaign aktif...</p>
                     </div>
                 </div>
             </main>
@@ -181,7 +143,7 @@
         <div class="absolute inset-0 bg-slate-900/40 modal-backdrop transition-opacity" onclick="closeDonationModal()"></div>
         <div class="bg-white rounded-2xl w-full max-w-md mx-4 relative z-10 shadow-2xl transform scale-95 transition-transform duration-300" id="modalContent">
             <div class="px-6 py-4 border-b flex justify-between items-center">
-                <h3 class="font-bold text-lg">Simulasi Donasi</h3>
+                <h3 class="font-bold text-lg">Donasi Sekarang</h3>
                 <button onclick="closeDonationModal()" class="text-slate-400 hover:text-slate-600"><i class="ph ph-x text-xl"></i></button>
             </div>
             <div class="p-6">
@@ -212,6 +174,61 @@
 
                 <button onclick="processDonation()" class="w-full bg-primary-600 text-white font-bold py-3 rounded-lg hover:bg-primary-700 transition-colors">
                     Bayar Sekarang
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- QRIS Payment Modal -->
+    <div id="qrisPaymentModal" class="fixed inset-0 z-50 hidden flex items-center justify-center">
+        <div class="absolute inset-0 bg-slate-900/60 modal-backdrop transition-opacity" onclick="closeQrisPaymentModal()"></div>
+        <div class="bg-white rounded-2xl w-full max-w-md mx-4 relative z-10 shadow-2xl overflow-hidden transform scale-95 transition-transform duration-300" id="qrisModalContent">
+            <!-- Header -->
+            <div class="px-6 py-4 border-b flex justify-between items-center bg-slate-50">
+                <div class="flex items-center space-x-2">
+                    <i class="ph-fill ph-qr-code text-primary-600 text-2xl"></i>
+                    <h3 class="font-bold text-lg text-slate-900">Pembayaran QRIS</h3>
+                </div>
+                <button onclick="closeQrisPaymentModal()" class="text-slate-400 hover:text-slate-600"><i class="ph ph-x text-xl"></i></button>
+            </div>
+            
+            <div class="p-6 flex flex-col items-center">
+                <!-- Demo Badge -->
+                <div id="qrisDemoBadge" class="hidden mb-4 bg-amber-50 text-amber-800 border border-amber-200 px-3 py-1 rounded-full text-xs font-semibold flex items-center space-x-1">
+                    <i class="ph-fill ph-info"></i>
+                    <span>Mode Demo (Project Inactive)</span>
+                </div>
+
+                <p class="text-xs text-slate-400 uppercase tracking-wider mb-1">Nominal Donasi</p>
+                <p class="text-2xl font-black text-slate-900 mb-4" id="qrisModalAmount">Rp 0</p>
+                
+                <!-- QR Code Box -->
+                <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 flex items-center justify-center w-64 h-64 shadow-inner relative overflow-hidden mb-4">
+                    <img id="qrisModalImage" src="" alt="QRIS QR Code" class="w-full h-full object-contain" onload="document.getElementById('qrisModalLoader').classList.add('hidden')">
+                    <div id="qrisModalLoader" class="absolute inset-0 bg-white/95 flex flex-col items-center justify-center">
+                        <div class="animate-spin rounded-full h-10 w-10 border-4 border-primary-500 border-t-transparent mb-2"></div>
+                        <p class="text-xs font-semibold text-slate-500">Membuat QRIS...</p>
+                    </div>
+                </div>
+
+                <div class="text-center max-w-xs mb-6">
+                    <p class="text-sm font-semibold text-slate-800" id="qrisModalCampaign">Nama Campaign</p>
+                    <p class="text-xs text-slate-500 mt-1">Silakan scan kode QRIS di atas menggunakan aplikasi dompet digital Anda (Gopay, OVO, Dana, LinkAja, dll).</p>
+                </div>
+
+                <!-- Status Check Indicator -->
+                <div class="w-full bg-slate-50 rounded-xl p-3 border border-slate-100 flex items-center justify-center space-x-3 mb-6">
+                    <div class="flex h-2 w-2 relative">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                    </div>
+                    <span class="text-xs font-medium text-slate-600 animate-pulse">Menunggu pembayaran terverifikasi...</span>
+                </div>
+
+                <!-- Demo Simulation Button -->
+                <button id="qrisDemoBtn" onclick="simulateQrisSuccess()" class="hidden w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl transition-all shadow-md shadow-emerald-200 flex items-center justify-center space-x-2">
+                    <i class="ph ph-check-circle text-lg"></i>
+                    <span>Simulasikan Pembayaran Sukses</span>
                 </button>
             </div>
         </div>
