@@ -1101,6 +1101,55 @@ const initSettingsForms = () => {
     }
 };
 
+const initNotificationPanel = () => {
+    const button = document.getElementById("notificationButton");
+    const panel = document.getElementById("notificationPanel");
+    const dot = document.getElementById("notificationDot");
+    const markReadBtn = document.getElementById("notificationMarkRead");
+
+    if (!button || !panel) return;
+
+    const closePanel = () => {
+        panel.classList.add("hidden");
+        button.setAttribute("aria-expanded", "false");
+    };
+
+    const togglePanel = () => {
+        const isHidden = panel.classList.contains("hidden");
+        if (isHidden) {
+            panel.classList.remove("hidden");
+            button.setAttribute("aria-expanded", "true");
+        } else {
+            closePanel();
+        }
+    };
+
+    button.addEventListener("click", (event) => {
+        event.stopPropagation();
+        togglePanel();
+    });
+
+    document.addEventListener("click", (event) => {
+        if (!panel.classList.contains("hidden") && !panel.contains(event.target)) {
+            closePanel();
+        }
+    });
+
+    document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+            closePanel();
+        }
+    });
+
+    if (markReadBtn) {
+        markReadBtn.addEventListener("click", (event) => {
+            event.stopPropagation();
+            if (dot) dot.classList.add("hidden");
+            closePanel();
+        });
+    }
+};
+
 const initCampaignDetail = async () => {
     const titleEl = document.getElementById("campaignTitle");
     if (!titleEl) return;
@@ -1192,6 +1241,7 @@ document.addEventListener("DOMContentLoaded", () => {
     initCampaignForm();
     initAuthForms();
     initSettingsForms();
+    initNotificationPanel();
     initAdminDashboard();
     initCampaignDetail();
     initRealtime();

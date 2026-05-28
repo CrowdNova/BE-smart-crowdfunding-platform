@@ -11,10 +11,41 @@
     </div>
 
     <div class="flex items-center space-x-4">
-        <button class="relative p-2 text-slate-500 hover:bg-slate-100 rounded-full transition-colors">
-            <i class="ph ph-bell text-xl"></i>
-            <span class="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
-        </button>
+        <div class="relative">
+            <button id="notificationButton" class="relative p-2 text-slate-500 hover:bg-slate-100 rounded-full transition-colors" aria-haspopup="true" aria-expanded="false">
+                <i class="ph ph-bell text-xl"></i>
+                <span id="notificationDot" class="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
+            </button>
+            <div id="notificationPanel" class="hidden absolute right-0 mt-3 w-80 bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden z-20">
+                <div class="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-semibold text-slate-900">Notifikasi</p>
+                        <p class="text-xs text-slate-500">Update terbaru untuk akunmu</p>
+                    </div>
+                    <button id="notificationMarkRead" class="text-xs font-semibold text-primary-600 hover:text-primary-700">Tandai dibaca</button>
+                </div>
+                <div id="notificationList" class="max-h-72 overflow-y-auto">
+                    <div class="px-4 py-3 border-b border-slate-100 bg-primary-50/40">
+                        <p class="text-sm font-semibold text-slate-900">Donasi baru masuk</p>
+                        <p class="text-xs text-slate-500">Rp 50.000 untuk campaign Bantuan Medis</p>
+                        <p class="text-[11px] text-slate-400 mt-1">Baru saja</p>
+                    </div>
+                    <div class="px-4 py-3 border-b border-slate-100">
+                        <p class="text-sm font-semibold text-slate-900">Campaign disetujui</p>
+                        <p class="text-xs text-slate-500">Campaign kamu sudah aktif di halaman utama.</p>
+                        <p class="text-[11px] text-slate-400 mt-1">2 jam lalu</p>
+                    </div>
+                    <div class="px-4 py-3">
+                        <p class="text-sm font-semibold text-slate-900">Pengingat campaign</p>
+                        <p class="text-xs text-slate-500">Sisa 3 hari untuk campaign Pendidikan.</p>
+                        <p class="text-[11px] text-slate-400 mt-1">Kemarin</p>
+                    </div>
+                </div>
+                <div class="px-4 py-3 border-t border-slate-100 bg-slate-50">
+                    <a href="/riwayat-donasi" class="text-xs font-semibold text-slate-600 hover:text-primary-600">Lihat semua aktivitas</a>
+                </div>
+            </div>
+        </div>
         <a href="/logout" class="text-sm font-semibold text-slate-600 hover:text-primary-600">Logout</a>
         <div class="h-8 w-px bg-slate-200"></div>
         <button class="flex items-center space-x-2 p-1 rounded-full hover:bg-slate-50 transition-colors">
