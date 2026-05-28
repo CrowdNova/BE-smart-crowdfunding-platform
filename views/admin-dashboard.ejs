@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Kelompok 5</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="/js/tailwind-config.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased overflow-x-hidden">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        primary: { 50: '#f0fdf4', 100: '#dcfce7', 500: '#22c55e', 600: '#16a34a', 700: '#15803d' }
+                    }
+                }
+            }
+        }
+    </script>
+    <div class="flex h-screen overflow-hidden">
+        <%- include("partials/dashboard-sidebar", { activePage }) %>
+
+        <div class="flex-1 flex flex-col h-screen overflow-hidden">
+            <%- include("partials/dashboard-header") %>
+
+            <main class="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-slate-50/50">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-8">
+                    <div>
+                        <h1 class="text-2xl font-bold text-slate-900">Admin Dashboard</h1>
+                        <p class="text-sm text-slate-500 mt-1">Kelola campaign, user, dan aktivitas donasi.</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8" id="adminSummary">
+                    <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+                        <p class="text-sm font-medium text-slate-500 mb-1">Total Users</p>
+                        <h3 class="text-3xl font-bold text-slate-900">0</h3>
+                    </div>
+                    <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+                        <p class="text-sm font-medium text-slate-500 mb-1">Users Aktif</p>
+                        <h3 class="text-3xl font-bold text-slate-900">0</h3>
+                    </div>
+                    <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+                        <p class="text-sm font-medium text-slate-500 mb-1">Campaign Pending</p>
+                        <h3 class="text-3xl font-bold text-slate-900">0</h3>
+                    </div>
+                    <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+                        <p class="text-sm font-medium text-slate-500 mb-1">Total Donasi</p>
+                        <h3 class="text-3xl font-bold text-slate-900">Rp 0</h3>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                    <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+                        <div class="flex items-center justify-between mb-4">
+                            <h2 class="text-lg font-bold text-slate-900">Persetujuan Campaign</h2>
+                            <span class="text-xs text-slate-400">Klik approve/reject untuk mengubah status</span>
+                        </div>
+                        <div class="space-y-4" id="adminCampaignList">
+                            <div class="text-center py-8 bg-slate-50 rounded-2xl border border-slate-100">
+                                <div class="animate-spin rounded-full h-8 w-8 border-4 border-primary-500 border-t-transparent mx-auto mb-3"></div>
+                                <p class="text-slate-500 font-medium">Memuat data campaign...</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+                        <div class="flex items-center justify-between mb-4">
+                            <h2 class="text-lg font-bold text-slate-900">Manajemen User</h2>
+                            <span class="text-xs text-slate-400">Ubah role dan status akun</span>
+                        </div>
+                        <div class="space-y-4" id="adminUserList">
+                            <div class="text-center py-8 bg-slate-50 rounded-2xl border border-slate-100">
+                                <div class="animate-spin rounded-full h-8 w-8 border-4 border-primary-500 border-t-transparent mx-auto mb-3"></div>
+                                <p class="text-slate-500 font-medium">Memuat data user...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-lg font-bold text-slate-900">Riwayat Donasi</h2>
+                        <span class="text-xs text-slate-400">Terbaru</span>
+                    </div>
+                    <div class="space-y-4" id="adminDonationList">
+                        <div class="text-center py-8 bg-slate-50 rounded-2xl border border-slate-100">
+                            <div class="animate-spin rounded-full h-8 w-8 border-4 border-primary-500 border-t-transparent mx-auto mb-3"></div>
+                            <p class="text-slate-500 font-medium">Memuat data donasi...</p>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script src="/js/app.js" defer></script>
+</body>
+</html>

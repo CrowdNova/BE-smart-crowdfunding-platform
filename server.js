@@ -73,6 +73,13 @@ const seedData = {
             email: "admin@crowdfund.local",
             password: "admin123",
             role: "admin",
+            status: "active",
+            phone: "",
+            notificationPrefs: {
+                donation: true,
+                campaign: true,
+                newsletter: false
+            },
             createdAt: new Date().toISOString()
         }
     ],
@@ -87,6 +94,8 @@ const seedData = {
             imageUrl: "https://images.unsplash.com/photo-1532938911079-1b06ac7ceec7?w=1000&auto=format&fit=crop",
             story: "Halo Orang Baik, perkenalkan ini Nisa (5 tahun). Sejak lahir, Nisa didiagnosis mengalami kelainan jantung bawaan yang membuatnya mudah sesak napas dan kulitnya membiru jika menangis terlalu lama.\n\nKondisi ekonomi keluarga yang pas-pasan membuat Nisa belum bisa mendapatkan tindakan operasi yang seharusnya dilakukan secepat mungkin. Ayah Nisa hanya seorang buruh harian lepas, sedangkan ibunya mengurus Nisa di rumah.\n\nMari kita bantu Nisa untuk mendapatkan senyum sehatnya kembali. Bantuan sekecil apapun dari teman-teman akan sangat berarti bagi kelangsungan hidup Nisa.",
             organizer: "Yayasan Zakat",
+            status: "approved",
+            approvedAt: new Date().toISOString(),
             createdAt: new Date().toISOString()
         },
         {
@@ -99,6 +108,8 @@ const seedData = {
             imageUrl: "https://images.unsplash.com/photo-1509062522246-3755977927d7?w=1000&auto=format&fit=crop",
             story: "Sekolah di pelosok desa membutuhkan renovasi untuk memberikan ruang belajar yang aman dan nyaman. Dengan bantuan Anda, kami akan memperbaiki atap, lantai, dan fasilitas pendukung agar proses belajar mengajar berjalan lebih baik.",
             organizer: "Relawan Pendidikan",
+            status: "approved",
+            approvedAt: new Date().toISOString(),
             createdAt: new Date().toISOString()
         }
     ],
@@ -171,6 +182,13 @@ const setupGoogleAuth = () => {
                     role: "user",
                     provider: "google",
                     providerId: profile.id || "",
+                    status: "active",
+                    phone: "",
+                    notificationPrefs: {
+                        donation: true,
+                        campaign: true,
+                        newsletter: false
+                    },
                     createdAt: new Date().toISOString()
                 };
                 users.push(user);
@@ -233,6 +251,7 @@ const getAuthUser = async (req) => {
     const users = await readData("users");
     const user = users.find((item) => item.id === userId || item.email === userId);
     if (!user) return null;
+    if (user.status === "disabled") return null;
 
     const emailHeader = req.headers["x-user-email"];
     if (emailHeader && user.email !== emailHeader) return null;
@@ -259,6 +278,24 @@ const requirePageAuth = async (req, res, next) => {
         const user = await getAuthUser(req);
         if (!user) {
             res.redirect("/login");
+            return;
+        }
+        req.authUser = user;
+        next();
+    } catch (error) {
+        next(error);
+    }
+};
+
+const requireAdminPage = async (req, res, next) => {
+    try {
+        const user = await getAuthUser(req);
+        if (!user) {
+            res.redirect("/login");
+            return;
+        }
+        if (user.role !== "admin") {
+            res.status(403).send("Akses ditolak.");
             return;
         }
         req.authUser = user;
@@ -456,7 +493,7 @@ const createPagesRouter = require("./routes/pages");
 const createAuthRouter = require("./routes/auth");
 const createApiRouter = require("./routes/api");
 
-const pagesRouter = createPagesRouter({ getAuthUser, requirePageAuth });
+const pagesRouter = createPagesRouter({ getAuthUser, requirePageAuth, requireAdminPage });
 const authRouter = createAuthRouter({ passport, ensureGoogleOAuth });
 const apiRouter = createApiRouter({
     readData,
@@ -466,6 +503,7 @@ const apiRouter = createApiRouter({
     buildAnalytics,
     createPaymentTransaction,
     requireAuth,
+    getAuthUser,
     io,
     createQris,
     checkStatus

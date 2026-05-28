@@ -1,6 +1,6 @@
 const express = require("express");
 
-const createPagesRouter = ({ getAuthUser, requirePageAuth }) => {
+const createPagesRouter = ({ getAuthUser, requirePageAuth, requireAdminPage }) => {
     const router = express.Router();
 
     router.use(async (req, res, next) => {
@@ -50,6 +50,10 @@ const createPagesRouter = ({ getAuthUser, requirePageAuth }) => {
 
     router.get("/pengaturan-sistem", requirePageAuth, (req, res) => {
         res.render("pengaturan-sistem", { activePage: "pengaturan-sistem" });
+    });
+
+    router.get("/admin", requireAdminPage, (req, res) => {
+        res.render("admin-dashboard", { activePage: "admin" });
     });
 
     router.get("/campaign/:id", (req, res) => {

@@ -29,6 +29,11 @@
             <a href="/pengaturan-sistem" class="flex items-center px-3 py-2.5 rounded-lg font-medium transition-colors <%= isActive('pengaturan-sistem') ? 'bg-primary-50 text-primary-700' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900' %>">
                 <i class="ph ph-gear text-xl mr-3"></i> Pengaturan Sistem
             </a>
+            <% if (currentUser && currentUser.role === 'admin') { %>
+                <a href="/admin" class="flex items-center px-3 py-2.5 rounded-lg font-medium transition-colors <%= isActive('admin') ? 'bg-primary-50 text-primary-700' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900' %>">
+                    <i class="ph ph-shield-check text-xl mr-3"></i> Admin Dashboard
+                </a>
+            <% } %>
         </nav>
     </div>
 

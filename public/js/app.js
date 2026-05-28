@@ -346,11 +346,205 @@ const guardProtectedRoutes = () => {
         "/buat-campaign",
         "/campaign-saya",
         "/riwayat-donasi",
-        "/pengaturan-sistem"
+        "/pengaturan-sistem",
+        "/admin"
     ];
     const currentPath = window.location.pathname.replace(/\/$/, "") || "/";
     if (protectedPages.includes(currentPath) && !isAuthenticated()) {
         window.location.href = "/login";
+    }
+};
+
+const initAdminDashboard = async () => {
+    const summaryEl = document.getElementById("adminSummary");
+    if (!summaryEl) return;
+
+    const user = getCurrentUser();
+    if (!user || user.role !== "admin") {
+        showAlert("Akses Ditolak", "Halaman ini hanya untuk admin.", "warning");
+        window.location.href = "/dashboard";
+        return;
+    }
+
+    const campaignList = document.getElementById("adminCampaignList");
+    const userList = document.getElementById("adminUserList");
+    const donationList = document.getElementById("adminDonationList");
+
+    try {
+        const [summary, campaignsPayload, usersPayload, donationsPayload] = await Promise.all([
+            fetchJson("/api/admin/summary"),
+            fetchJson("/api/admin/campaigns"),
+            fetchJson("/api/admin/users"),
+            fetchJson("/api/admin/donations")
+        ]);
+
+        if (summaryEl) {
+            const cards = summaryEl.querySelectorAll("h3");
+            if (cards[0]) cards[0].textContent = (summary.totalUsers || 0).toString();
+            if (cards[1]) cards[1].textContent = (summary.activeUsers || 0).toString();
+            if (cards[2]) cards[2].textContent = (summary.pendingCampaigns || 0).toString();
+            if (cards[3]) cards[3].textContent = formatRupiah(summary.totalDonations || 0);
+        }
+
+        const campaigns = Array.isArray(campaignsPayload.campaigns) ? campaignsPayload.campaigns : [];
+        if (campaignList) {
+            if (campaigns.length === 0) {
+                campaignList.innerHTML = `
+                    <div class="text-center py-8 bg-slate-50 rounded-2xl border border-slate-100">
+                        <p class="text-slate-500 font-medium">Belum ada campaign.</p>
+                    </div>
+                `;
+            } else {
+                campaignList.innerHTML = campaigns.map((campaign) => {
+                    const status = campaign.status || "approved";
+                    const statusClass = status === "approved"
+                        ? "bg-emerald-100 text-emerald-700"
+                        : status === "rejected"
+                            ? "bg-rose-100 text-rose-700"
+                            : "bg-amber-100 text-amber-700";
+
+                    return `
+                        <div class="border border-slate-100 rounded-2xl p-4 bg-slate-50">
+                            <div class="flex items-start justify-between">
+                                <div>
+                                    <p class="text-sm font-semibold text-slate-900">${escapeHtml(campaign.title || 'Campaign')}</p>
+                                    <p class="text-xs text-slate-500">${escapeHtml(campaign.organizer || 'Penggalang Dana')}</p>
+                                    <p class="text-xs text-slate-400">${formatDateTime(campaign.createdAt)}</p>
+                                </div>
+                                <span class="text-xs font-semibold px-2.5 py-1 rounded-full ${statusClass}">${status.toUpperCase()}</span>
+                            </div>
+                            <div class="mt-3 flex flex-wrap gap-2">
+                                <button class="px-3 py-1.5 text-xs rounded-lg bg-emerald-600 text-white" onclick="adminUpdateCampaignStatus('${campaign.id}', 'approved')">Approve</button>
+                                <button class="px-3 py-1.5 text-xs rounded-lg bg-amber-500 text-white" onclick="adminUpdateCampaignStatus('${campaign.id}', 'rejected')">Reject</button>
+                                <button class="px-3 py-1.5 text-xs rounded-lg border border-slate-200 text-slate-600" onclick="adminDeleteCampaign('${campaign.id}')">Hapus</button>
+                            </div>
+                        </div>
+                    `;
+                }).join("");
+            }
+        }
+
+        const users = Array.isArray(usersPayload.users) ? usersPayload.users : [];
+        if (userList) {
+            if (users.length === 0) {
+                userList.innerHTML = `
+                    <div class="text-center py-8 bg-slate-50 rounded-2xl border border-slate-100">
+                        <p class="text-slate-500 font-medium">Belum ada user.</p>
+                    </div>
+                `;
+            } else {
+                userList.innerHTML = users.map((item) => {
+                    const role = item.role || "user";
+                    const status = item.status || "active";
+                    const roleClass = role === "admin" ? "bg-indigo-100 text-indigo-700" : "bg-slate-100 text-slate-600";
+                    const statusClass = status === "disabled" ? "bg-rose-100 text-rose-700" : "bg-emerald-100 text-emerald-700";
+
+                    return `
+                        <div class="border border-slate-100 rounded-2xl p-4 bg-slate-50">
+                            <div class="flex items-start justify-between">
+                                <div>
+                                    <p class="text-sm font-semibold text-slate-900">${escapeHtml(item.name || 'User')}</p>
+                                    <p class="text-xs text-slate-500">${escapeHtml(item.email || '-')}</p>
+                                </div>
+                                <div class="flex flex-col items-end gap-2">
+                                    <span class="text-xs font-semibold px-2.5 py-1 rounded-full ${roleClass}">${role.toUpperCase()}</span>
+                                    <span class="text-xs font-semibold px-2.5 py-1 rounded-full ${statusClass}">${status.toUpperCase()}</span>
+                                </div>
+                            </div>
+                            <div class="mt-3 flex flex-wrap gap-2">
+                                <button class="px-3 py-1.5 text-xs rounded-lg border border-slate-200 text-slate-600" onclick="adminUpdateUserRole('${item.id}', '${role === 'admin' ? 'user' : 'admin'}')">Set ${role === 'admin' ? 'User' : 'Admin'}</button>
+                                <button class="px-3 py-1.5 text-xs rounded-lg border border-slate-200 text-slate-600" onclick="adminUpdateUserStatus('${item.id}', '${status === 'disabled' ? 'active' : 'disabled'}')">${status === 'disabled' ? 'Aktifkan' : 'Nonaktifkan'}</button>
+                            </div>
+                        </div>
+                    `;
+                }).join("");
+            }
+        }
+
+        const donations = Array.isArray(donationsPayload.donations) ? donationsPayload.donations : [];
+        if (donationList) {
+            if (donations.length === 0) {
+                donationList.innerHTML = `
+                    <div class="text-center py-8 bg-slate-50 rounded-2xl border border-slate-100">
+                        <p class="text-slate-500 font-medium">Belum ada donasi.</p>
+                    </div>
+                `;
+            } else {
+                donationList.innerHTML = donations.slice(0, 10).map((donation) => {
+                    return `
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between bg-slate-50 rounded-2xl border border-slate-100 p-4">
+                            <div>
+                                <p class="text-sm font-semibold text-slate-900">${escapeHtml(donation.userName || donation.donorName || 'Donatur')}</p>
+                                <p class="text-xs text-slate-500">${escapeHtml(donation.campaignTitle || 'Campaign')}</p>
+                                <p class="text-xs text-slate-400">${formatDateTime(donation.createdAt)}</p>
+                            </div>
+                            <div class="mt-3 sm:mt-0 text-right">
+                                <p class="text-sm font-bold text-emerald-600">${formatRupiah(donation.amount || 0)}</p>
+                                <p class="text-xs text-slate-500 uppercase">${escapeHtml(donation.method || 'QRIS')}</p>
+                            </div>
+                        </div>
+                    `;
+                }).join("");
+            }
+        }
+    } catch (error) {
+        if (campaignList) {
+            campaignList.innerHTML = `
+                <div class="text-center py-8 bg-slate-50 rounded-2xl border border-slate-100">
+                    <p class="text-slate-500 font-medium">Gagal memuat data admin.</p>
+                </div>
+            `;
+        }
+    }
+};
+
+window.adminUpdateCampaignStatus = async (id, status) => {
+    try {
+        await fetchJson(`/api/admin/campaigns/${id}`, {
+            method: "PATCH",
+            body: JSON.stringify({ status })
+        });
+        showAlert("Berhasil", "Status campaign diperbarui.", "success");
+        initAdminDashboard();
+    } catch (error) {
+        showAlert("Gagal", error.message || "Gagal memperbarui campaign.", "error");
+    }
+};
+
+window.adminDeleteCampaign = async (id) => {
+    if (!confirm("Hapus campaign ini?")) return;
+    try {
+        await fetchJson(`/api/admin/campaigns/${id}`, { method: "DELETE" });
+        showAlert("Berhasil", "Campaign berhasil dihapus.", "success");
+        initAdminDashboard();
+    } catch (error) {
+        showAlert("Gagal", error.message || "Gagal menghapus campaign.", "error");
+    }
+};
+
+window.adminUpdateUserRole = async (id, role) => {
+    try {
+        await fetchJson(`/api/admin/users/${id}`, {
+            method: "PATCH",
+            body: JSON.stringify({ role })
+        });
+        showAlert("Berhasil", "Role user diperbarui.", "success");
+        initAdminDashboard();
+    } catch (error) {
+        showAlert("Gagal", error.message || "Gagal memperbarui role.", "error");
+    }
+};
+
+window.adminUpdateUserStatus = async (id, status) => {
+    try {
+        await fetchJson(`/api/admin/users/${id}`, {
+            method: "PATCH",
+            body: JSON.stringify({ status })
+        });
+        showAlert("Berhasil", "Status user diperbarui.", "success");
+        initAdminDashboard();
+    } catch (error) {
+        showAlert("Gagal", error.message || "Gagal memperbarui status.", "error");
     }
 };
 
@@ -622,13 +816,23 @@ const loadMyCampaigns = async () => {
                 ? Math.min((campaign.currentAmount / campaign.targetAmount) * 100, 100)
                 : 0;
 
+            const status = campaign.status || "approved";
+            const statusClass = status === "approved"
+                ? "bg-emerald-100 text-emerald-700"
+                : status === "rejected"
+                    ? "bg-rose-100 text-rose-700"
+                    : "bg-amber-100 text-amber-700";
+
             return `
                 <div class="bg-white rounded-2xl overflow-hidden border border-slate-100 shadow-sm flex flex-col">
                     <a href="/campaign/${campaign.id}" class="h-40 bg-slate-200 block">
                         <img src="${campaign.imageUrl || 'https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?w=600&auto=format&fit=crop'}" class="w-full h-full object-cover">
                     </a>
                     <div class="p-4 flex-1 flex flex-col">
-                        <p class="text-xs font-semibold text-primary-600 uppercase tracking-wider mb-2">${escapeHtml(campaign.category || 'Campaign')}</p>
+                        <div class="flex items-center justify-between mb-2">
+                            <p class="text-xs font-semibold text-primary-600 uppercase tracking-wider">${escapeHtml(campaign.category || 'Campaign')}</p>
+                            <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full ${statusClass}">${status.toUpperCase()}</span>
+                        </div>
                         <a href="/campaign/${campaign.id}" class="text-base font-bold text-slate-900 mb-2 hover:text-primary-600">${escapeHtml(campaign.title || 'Campaign')}</a>
                         <div class="mt-auto">
                             <div class="w-full bg-slate-100 rounded-full h-2 mb-3 overflow-hidden">
@@ -744,7 +948,7 @@ const initCampaignForm = () => {
                 body: JSON.stringify(payload)
             });
 
-            showAlert("Berhasil", "Campaign berhasil dibuat.", "success");
+            showAlert("Berhasil", "Campaign berhasil dibuat dan menunggu persetujuan admin.", "success");
             form.reset();
             window.location.href = "/dashboard";
         } catch (error) {
@@ -988,6 +1192,7 @@ document.addEventListener("DOMContentLoaded", () => {
     initCampaignForm();
     initAuthForms();
     initSettingsForms();
+    initAdminDashboard();
     initCampaignDetail();
     initRealtime();
 });

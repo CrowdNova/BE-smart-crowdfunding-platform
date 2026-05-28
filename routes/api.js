@@ -8,6 +8,7 @@ const createApiRouter = ({
     buildAnalytics,
     createPaymentTransaction,
     requireAuth,
+    getAuthUser,
     io,
     createQris,
     checkStatus
@@ -42,6 +43,28 @@ const createApiRouter = ({
         return defaultValue;
     };
 
+    const requireAdmin = (req, res, next) => {
+        const user = req.authUser;
+        if (!user) {
+            res.status(401).json({ message: "Silakan login terlebih dahulu." });
+            return;
+        }
+        if (user.role !== "admin") {
+            res.status(403).json({ message: "Akses ditolak." });
+            return;
+        }
+        next();
+    };
+
+    const getOptionalUser = async (req) => {
+        if (!getAuthUser) return null;
+        try {
+            return await getAuthUser(req);
+        } catch (error) {
+            return null;
+        }
+    };
+
     router.get("/health", (req, res) => {
         res.json({ status: "ok" });
     });
@@ -53,7 +76,8 @@ const createApiRouter = ({
 
     router.get("/campaigns", async (req, res) => {
         const campaigns = await readData("campaigns");
-        res.json(campaigns);
+        const visible = campaigns.filter((item) => item.status !== "pending" && item.status !== "rejected");
+        res.json(visible);
     });
 
     router.get("/campaigns/:id", async (req, res) => {
@@ -62,6 +86,19 @@ const createApiRouter = ({
         if (!campaign) {
             res.status(404).json({ message: "Campaign not found" });
             return;
+        }
+
+        if (campaign.status === "pending" || campaign.status === "rejected") {
+            const user = await getOptionalUser(req);
+            const isOwner = user && (
+                campaign.userId === user.id ||
+                campaign.organizer === user.name
+            );
+            const isAdmin = user && user.role === "admin";
+            if (!isOwner && !isAdmin) {
+                res.status(404).json({ message: "Campaign not found" });
+                return;
+            }
         }
 
         // Count successful donations
@@ -83,6 +120,9 @@ const createApiRouter = ({
         }
 
         const campaigns = await readData("campaigns");
+        const isAdmin = req.authUser?.role === "admin";
+        const status = isAdmin ? "approved" : "pending";
+
         const payload = {
             id: makeId("camp"),
             title,
@@ -94,6 +134,8 @@ const createApiRouter = ({
             story,
             organizer: organizer || req.authUser?.name || "Penggalang Dana",
             userId: req.authUser?.id || null,
+            status,
+            approvedAt: status === "approved" ? new Date().toISOString() : null,
             createdAt: new Date().toISOString()
         };
 
@@ -178,6 +220,7 @@ const createApiRouter = ({
             email,
             password,
             role: "user",
+            status: "active",
             phone: "",
             notificationPrefs: {
                 donation: true,
@@ -205,6 +248,10 @@ const createApiRouter = ({
         const user = users.find((item) => item.email === email && item.password === password);
         if (!user) {
             res.status(401).json({ message: "Email atau password salah." });
+            return;
+        }
+        if (user.status === "disabled") {
+            res.status(403).json({ message: "Akun dinonaktifkan." });
             return;
         }
 
@@ -277,6 +324,137 @@ const createApiRouter = ({
         }
 
         res.json({ user: sanitizeUser(updated) });
+    });
+
+    router.get("/admin/summary", requireAuth, requireAdmin, async (req, res) => {
+        const users = await readData("users");
+        const campaigns = await readData("campaigns");
+        const donations = await readData("donations");
+
+        const totalUsers = users.length;
+        const activeUsers = users.filter((u) => u.status !== "disabled").length;
+        const totalCampaigns = campaigns.length;
+        const pendingCampaigns = campaigns.filter((c) => c.status === "pending").length;
+        const totalDonations = donations.reduce((sum, item) => sum + normalizeAmount(item.amount), 0);
+
+        res.json({
+            totalUsers,
+            activeUsers,
+            totalCampaigns,
+            pendingCampaigns,
+            totalDonations
+        });
+    });
+
+    router.get("/admin/campaigns", requireAuth, requireAdmin, async (req, res) => {
+        const campaigns = await readData("campaigns");
+        const donations = await readData("donations");
+
+        const mapped = campaigns.map((campaign) => {
+            const donorsCount = donations.filter((d) => d.campaignId === campaign.id).length;
+            return { ...campaign, donorsCount };
+        }).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+        res.json({ campaigns: mapped });
+    });
+
+    router.patch("/admin/campaigns/:id", requireAuth, requireAdmin, async (req, res) => {
+        const { status } = req.body;
+        const allowed = ["pending", "approved", "rejected"];
+        if (status && !allowed.includes(status)) {
+            res.status(400).json({ message: "Status campaign tidak valid." });
+            return;
+        }
+
+        const campaigns = await readData("campaigns");
+        const index = campaigns.findIndex((item) => item.id === req.params.id);
+        if (index === -1) {
+            res.status(404).json({ message: "Campaign tidak ditemukan." });
+            return;
+        }
+
+        campaigns[index] = {
+            ...campaigns[index],
+            ...req.body,
+            status: status || campaigns[index].status || "pending",
+            approvedAt: status === "approved" ? new Date().toISOString() : campaigns[index].approvedAt || null
+        };
+
+        await writeData("campaigns", campaigns);
+        res.json({ campaign: campaigns[index] });
+    });
+
+    router.delete("/admin/campaigns/:id", requireAuth, requireAdmin, async (req, res) => {
+        const campaigns = await readData("campaigns");
+        const next = campaigns.filter((item) => item.id !== req.params.id);
+        if (next.length === campaigns.length) {
+            res.status(404).json({ message: "Campaign tidak ditemukan." });
+            return;
+        }
+
+        await writeData("campaigns", next);
+        res.json({ success: true });
+    });
+
+    router.get("/admin/users", requireAuth, requireAdmin, async (req, res) => {
+        const users = await readData("users");
+        const payload = users.map((user) => {
+            const sanitized = sanitizeUser(user);
+            return {
+                ...sanitized,
+                status: user.status || "active"
+            };
+        });
+
+        res.json({ users: payload });
+    });
+
+    router.patch("/admin/users/:id", requireAuth, requireAdmin, async (req, res) => {
+        const { role, status, name, phone, password } = req.body;
+        const updates = {};
+
+        if (role && !["admin", "user"].includes(role)) {
+            res.status(400).json({ message: "Role tidak valid." });
+            return;
+        }
+
+        if (status && !["active", "disabled"].includes(status)) {
+            res.status(400).json({ message: "Status akun tidak valid." });
+            return;
+        }
+
+        if (role) updates.role = role;
+        if (status) updates.status = status;
+        if (name) updates.name = name;
+        if (typeof phone === "string") updates.phone = phone;
+        if (password) updates.password = password;
+
+        const updated = await updateUserRecord(req.params.id, updates);
+        if (!updated) {
+            res.status(404).json({ message: "Pengguna tidak ditemukan." });
+            return;
+        }
+
+        res.json({ user: sanitizeUser(updated) });
+    });
+
+    router.get("/admin/donations", requireAuth, requireAdmin, async (req, res) => {
+        const donations = await readData("donations");
+        const campaigns = await readData("campaigns");
+        const users = await readData("users");
+
+        const mapped = donations.map((donation) => {
+            const campaign = campaigns.find((item) => item.id === donation.campaignId);
+            const user = users.find((item) => item.id === donation.userId);
+            return {
+                ...donation,
+                campaignTitle: campaign?.title || "Campaign",
+                organizer: campaign?.organizer || "Penggalang Dana",
+                userName: user?.name || donation.donorName || "-"
+            };
+        }).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+        res.json({ donations: mapped });
     });
 
     router.post("/donations", requireAuth, async (req, res) => {
