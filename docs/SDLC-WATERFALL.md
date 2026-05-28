@@ -1,4 +1,4 @@
-# SDLC Waterfall - Project Crowdfunding
+# Software Development Life Cycle (SDLC) Waterfall - Project Crowdfunding
 
 ## 1. Judul Project
 Sistem Informasi Crowdfunding Donasi Online
