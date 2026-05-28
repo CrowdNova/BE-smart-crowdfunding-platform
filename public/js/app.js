@@ -31,6 +31,13 @@ const getCurrentUser = () => {
     }
 };
 
+const updateLocalUser = (updates) => {
+    const current = getCurrentUser() || {};
+    const next = { ...current, ...updates };
+    localStorage.setItem("crowdfund_user", JSON.stringify(next));
+    return next;
+};
+
 const isAuthenticated = () => {
     const user = getCurrentUser();
     return Boolean(user && user.id);
@@ -59,6 +66,15 @@ const formatRupiah = (number) => {
         currency: "IDR",
         minimumFractionDigits: 0
     }).format(number);
+};
+
+const formatDateTime = (value) => {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "-";
+    return new Intl.DateTimeFormat("id-ID", {
+        dateStyle: "medium",
+        timeStyle: "short"
+    }).format(date);
 };
 
 const fetchJson = async (url, options = {}) => {
@@ -325,7 +341,13 @@ const showToast = (title, message) => {
 };
 
 const guardProtectedRoutes = () => {
-    const protectedPages = ["/dashboard", "/buat-campaign"];
+    const protectedPages = [
+        "/dashboard",
+        "/buat-campaign",
+        "/campaign-saya",
+        "/riwayat-donasi",
+        "/pengaturan-sistem"
+    ];
     const currentPath = window.location.pathname.replace(/\/$/, "") || "/";
     if (protectedPages.includes(currentPath) && !isAuthenticated()) {
         window.location.href = "/login";
@@ -567,6 +589,132 @@ const loadCampaigns = async () => {
     }
 };
 
+const loadMyCampaigns = async () => {
+    const grid = document.getElementById("myCampaignGrid");
+    if (!grid) return;
+
+    if (!isAuthenticated()) return;
+
+    try {
+        const payload = await fetchJson("/api/my-campaigns");
+        const campaigns = Array.isArray(payload.campaigns) ? payload.campaigns : [];
+        const stats = payload.stats || {};
+
+        const totalEl = document.getElementById("my-campaign-total");
+        const danaEl = document.getElementById("my-campaign-dana");
+        const donaturEl = document.getElementById("my-campaign-donatur");
+        if (totalEl) totalEl.textContent = (stats.totalCampaigns || 0).toString();
+        if (danaEl) danaEl.textContent = formatRupiah(stats.totalDana || 0);
+        if (donaturEl) donaturEl.textContent = (stats.totalDonatur || 0).toLocaleString("id-ID");
+
+        if (campaigns.length === 0) {
+            grid.innerHTML = `
+                <div class="col-span-full text-center py-10 bg-slate-50 rounded-2xl border border-slate-100">
+                    <i class="ph ph-megaphone text-4xl text-slate-300 mb-2"></i>
+                    <p class="text-slate-500 font-medium">Belum ada campaign yang Anda buat.</p>
+                </div>
+            `;
+            return;
+        }
+
+        grid.innerHTML = campaigns.map((campaign) => {
+            const progress = campaign.targetAmount
+                ? Math.min((campaign.currentAmount / campaign.targetAmount) * 100, 100)
+                : 0;
+
+            return `
+                <div class="bg-white rounded-2xl overflow-hidden border border-slate-100 shadow-sm flex flex-col">
+                    <a href="/campaign/${campaign.id}" class="h-40 bg-slate-200 block">
+                        <img src="${campaign.imageUrl || 'https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?w=600&auto=format&fit=crop'}" class="w-full h-full object-cover">
+                    </a>
+                    <div class="p-4 flex-1 flex flex-col">
+                        <p class="text-xs font-semibold text-primary-600 uppercase tracking-wider mb-2">${escapeHtml(campaign.category || 'Campaign')}</p>
+                        <a href="/campaign/${campaign.id}" class="text-base font-bold text-slate-900 mb-2 hover:text-primary-600">${escapeHtml(campaign.title || 'Campaign')}</a>
+                        <div class="mt-auto">
+                            <div class="w-full bg-slate-100 rounded-full h-2 mb-3 overflow-hidden">
+                                <div class="bg-primary-500 h-2 rounded-full" style="width: ${progress}%"></div>
+                            </div>
+                            <div class="flex justify-between text-sm text-slate-600 mb-2">
+                                <span>${formatRupiah(campaign.currentAmount || 0)}</span>
+                                <span>Target ${formatRupiah(campaign.targetAmount || 0)}</span>
+                            </div>
+                            <div class="flex items-center justify-between text-xs text-slate-500">
+                                <span>${(campaign.donorsCount || 0).toLocaleString("id-ID")} donatur</span>
+                                <span>Deadline ${campaign.deadline ? new Date(campaign.deadline).toLocaleDateString("id-ID") : '-'}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join("");
+    } catch (error) {
+        grid.innerHTML = `
+            <div class="col-span-full text-center py-10 bg-slate-50 rounded-2xl border border-slate-100">
+                <i class="ph ph-warning-circle text-4xl text-amber-400 mb-2"></i>
+                <p class="text-slate-500 font-medium">Gagal memuat campaign Anda.</p>
+            </div>
+        `;
+    }
+};
+
+const loadDonationHistory = async () => {
+    const list = document.getElementById("donationHistoryList");
+    if (!list) return;
+
+    if (!isAuthenticated()) return;
+
+    try {
+        const payload = await fetchJson("/api/my-donations");
+        const donations = Array.isArray(payload.donations) ? payload.donations : [];
+        const stats = payload.stats || {};
+
+        const totalEl = document.getElementById("donation-total");
+        const countEl = document.getElementById("donation-count");
+        const campaignsEl = document.getElementById("donation-campaigns");
+        if (totalEl) totalEl.textContent = formatRupiah(stats.totalDonasi || 0);
+        if (countEl) countEl.textContent = (stats.totalTransaksi || 0).toString();
+        if (campaignsEl) campaignsEl.textContent = (stats.uniqueCampaigns || 0).toString();
+
+        if (donations.length === 0) {
+            list.innerHTML = `
+                <div class="text-center py-10 bg-slate-50 rounded-2xl border border-slate-100">
+                    <i class="ph ph-heart text-4xl text-slate-300 mb-2"></i>
+                    <p class="text-slate-500 font-medium">Belum ada donasi yang tercatat.</p>
+                </div>
+            `;
+            return;
+        }
+
+        list.innerHTML = donations.map((donation) => {
+            return `
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between bg-slate-50 rounded-2xl border border-slate-100 p-4">
+                    <div class="flex items-center space-x-4">
+                        <div class="w-12 h-12 rounded-xl bg-white border border-slate-200 flex items-center justify-center">
+                            <i class="ph ph-heart text-primary-600 text-xl"></i>
+                        </div>
+                        <div>
+                            <p class="text-sm font-semibold text-slate-900">${escapeHtml(donation.campaignTitle || 'Campaign')}</p>
+                            <p class="text-xs text-slate-500">${escapeHtml(donation.organizer || 'Penggalang Dana')}</p>
+                            <p class="text-xs text-slate-400">${formatDateTime(donation.createdAt)}</p>
+                        </div>
+                    </div>
+                    <div class="mt-3 sm:mt-0 text-right">
+                        <p class="text-sm font-bold text-emerald-600">${formatRupiah(donation.amount || 0)}</p>
+                        <p class="text-xs text-slate-500 uppercase">${escapeHtml(donation.method || 'QRIS')}</p>
+                    </div>
+                </div>
+            `;
+        }).join("");
+    } catch (error) {
+        list.innerHTML = `
+            <div class="text-center py-10 bg-slate-50 rounded-2xl border border-slate-100">
+                <i class="ph ph-warning-circle text-4xl text-amber-400 mb-2"></i>
+                <p class="text-slate-500 font-medium">Gagal memuat riwayat donasi.</p>
+            </div>
+        `;
+    }
+};
+
 const initCampaignForm = () => {
     const form = document.getElementById("campaignForm");
     if (!form) return;
@@ -658,6 +806,97 @@ const initAuthForms = () => {
     }
 };
 
+const initSettingsForms = () => {
+    const profileForm = document.getElementById("profileForm");
+    if (profileForm) {
+        profileForm.addEventListener("submit", async (event) => {
+            event.preventDefault();
+            const name = document.getElementById("profileName")?.value.trim();
+            const phone = document.getElementById("profilePhone")?.value.trim();
+
+            if (!name) {
+                showAlert("Oops!", "Nama lengkap wajib diisi.", "warning");
+                return;
+            }
+
+            try {
+                const response = await fetchJson("/api/settings/profile", {
+                    method: "PATCH",
+                    body: JSON.stringify({ name, phone })
+                });
+
+                if (response.user) {
+                    updateLocalUser(response.user);
+                }
+
+                showAlert("Berhasil", "Profil berhasil diperbarui.", "success");
+            } catch (error) {
+                showAlert("Gagal", error.message || "Gagal memperbarui profil.", "error");
+            }
+        });
+    }
+
+    const notificationForm = document.getElementById("notificationForm");
+    if (notificationForm) {
+        notificationForm.addEventListener("submit", async (event) => {
+            event.preventDefault();
+            const donation = Boolean(document.getElementById("notifyDonation")?.checked);
+            const campaign = Boolean(document.getElementById("notifyCampaign")?.checked);
+            const newsletter = Boolean(document.getElementById("notifyNewsletter")?.checked);
+
+            try {
+                const response = await fetchJson("/api/settings/notifications", {
+                    method: "PATCH",
+                    body: JSON.stringify({ donation, campaign, newsletter })
+                });
+
+                if (response.user) {
+                    updateLocalUser(response.user);
+                }
+
+                showAlert("Berhasil", "Preferensi notifikasi tersimpan.", "success");
+            } catch (error) {
+                showAlert("Gagal", error.message || "Gagal menyimpan preferensi.", "error");
+            }
+        });
+    }
+
+    const securityForm = document.getElementById("securityForm");
+    if (securityForm) {
+        securityForm.addEventListener("submit", async (event) => {
+            event.preventDefault();
+            const newPassword = document.getElementById("newPassword")?.value || "";
+            const confirmPassword = document.getElementById("confirmPassword")?.value || "";
+
+            if (!newPassword || newPassword.length < 6) {
+                showAlert("Oops!", "Password minimal 6 karakter.", "warning");
+                return;
+            }
+
+            if (newPassword !== confirmPassword) {
+                showAlert("Oops!", "Konfirmasi password tidak cocok.", "warning");
+                return;
+            }
+
+            try {
+                await fetchJson("/api/settings/security", {
+                    method: "PATCH",
+                    body: JSON.stringify({ newPassword, confirmPassword })
+                });
+
+                const newPasswordInput = document.getElementById("newPassword");
+                const confirmPasswordInput = document.getElementById("confirmPassword");
+                if (newPasswordInput) newPasswordInput.value = "";
+                if (confirmPasswordInput) confirmPasswordInput.value = "";
+
+                showAlert("Berhasil", "Password berhasil diperbarui.", "success");
+            } catch (error) {
+                showAlert("Gagal", error.message || "Gagal memperbarui password.", "error");
+            }
+        });
+    }
+};
+
 const initCampaignDetail = async () => {
     const titleEl = document.getElementById("campaignTitle");
     if (!titleEl) return;
@@ -743,9 +982,12 @@ document.addEventListener("DOMContentLoaded", () => {
     initChart();
     loadAnalytics();
     loadCampaigns();
+    loadMyCampaigns();
+    loadDonationHistory();
     syncDonationButtons();
     initCampaignForm();
     initAuthForms();
+    initSettingsForms();
     initCampaignDetail();
     initRealtime();
 });

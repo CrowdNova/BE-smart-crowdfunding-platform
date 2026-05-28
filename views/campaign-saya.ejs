@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Campaign Saya - Kelompok 5</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="/js/tailwind-config.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased overflow-x-hidden">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        primary: { 50: '#f0fdf4', 100: '#dcfce7', 500: '#22c55e', 600: '#16a34a', 700: '#15803d' }
+                    }
+                }
+            }
+        }
+    </script>
+    <div class="flex h-screen overflow-hidden">
+        <%- include("partials/dashboard-sidebar", { activePage }) %>
+
+        <div class="flex-1 flex flex-col h-screen overflow-hidden">
+            <%- include("partials/dashboard-header") %>
+
+            <main class="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-slate-50/50">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-8">
+                    <div>
+                        <h1 class="text-2xl font-bold text-slate-900">Campaign Saya</h1>
+                        <p class="text-sm text-slate-500 mt-1">Kelola dan pantau campaign yang Anda buat.</p>
+                    </div>
+                    <button onclick="window.location.href='/buat-campaign'" class="mt-4 sm:mt-0 bg-primary-600 hover:bg-primary-700 text-white px-4 py-2.5 rounded-lg font-medium text-sm transition-colors shadow-sm flex items-center justify-center space-x-2">
+                        <i class="ph ph-plus-circle text-lg"></i>
+                        <span>Buat Campaign</span>
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-sm font-medium text-slate-500 mb-1">Total Campaign</p>
+                                <h3 class="text-3xl font-bold text-slate-900" id="my-campaign-total">0</h3>
+                            </div>
+                            <div class="w-12 h-12 bg-primary-100 rounded-xl flex items-center justify-center text-primary-600">
+                                <i class="ph ph-megaphone text-2xl"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-sm font-medium text-slate-500 mb-1">Dana Terkumpul</p>
+                                <h3 class="text-3xl font-bold text-slate-900" id="my-campaign-dana">Rp 0</h3>
+                            </div>
+                            <div class="w-12 h-12 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600">
+                                <i class="ph ph-wallet text-2xl"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-sm font-medium text-slate-500 mb-1">Total Donatur</p>
+                                <h3 class="text-3xl font-bold text-slate-900" id="my-campaign-donatur">0</h3>
+                            </div>
+                            <div class="w-12 h-12 bg-amber-50 rounded-xl flex items-center justify-center text-amber-600">
+                                <i class="ph ph-users text-2xl"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                    <div class="lg:col-span-2 bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-4">
+                            <h2 class="text-lg font-bold text-slate-900">Daftar Campaign</h2>
+                            <div class="flex items-center space-x-2 text-sm text-slate-500">
+                                <i class="ph ph-info"></i>
+                                <span>Data diperbarui otomatis dari server.</span>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-5" id="myCampaignGrid">
+                            <div class="col-span-full text-center py-10 bg-slate-50 rounded-2xl border border-slate-100">
+                                <div class="animate-spin rounded-full h-8 w-8 border-4 border-primary-500 border-t-transparent mx-auto mb-3"></div>
+                                <p class="text-slate-500 font-medium">Memuat campaign Anda...</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+                        <h2 class="text-lg font-bold text-slate-900 mb-4">Tips Pengelolaan</h2>
+                        <div class="space-y-4 text-sm text-slate-600">
+                            <div class="flex items-start space-x-3">
+                                <i class="ph ph-check-circle text-primary-600 text-lg mt-0.5"></i>
+                                <p>Perbarui cerita campaign secara berkala agar donatur tetap terlibat.</p>
+                            </div>
+                            <div class="flex items-start space-x-3">
+                                <i class="ph ph-chart-line text-primary-600 text-lg mt-0.5"></i>
+                                <p>Bagikan progress penggalangan dana di media sosial.</p>
+                            </div>
+                            <div class="flex items-start space-x-3">
+                                <i class="ph ph-clock text-primary-600 text-lg mt-0.5"></i>
+                                <p>Pastikan deadline jelas untuk meningkatkan urgensi.</p>
+                            </div>
+                        </div>
+                        <div class="mt-6 p-4 rounded-xl bg-primary-50 border border-primary-100">
+                            <p class="text-sm font-semibold text-primary-700">Butuh bantuan?</p>
+                            <p class="text-xs text-primary-700/80 mt-1">Hubungi admin untuk pengaturan campaign lanjutan.</p>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script src="/js/app.js" defer></script>
+</body>
+</html>

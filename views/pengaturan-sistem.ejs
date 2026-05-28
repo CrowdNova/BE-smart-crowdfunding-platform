@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pengaturan Sistem - Kelompok 5</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="/js/tailwind-config.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased overflow-x-hidden">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        primary: { 50: '#f0fdf4', 100: '#dcfce7', 500: '#22c55e', 600: '#16a34a', 700: '#15803d' }
+                    }
+                }
+            }
+        }
+    </script>
+    <div class="flex h-screen overflow-hidden">
+        <%- include("partials/dashboard-sidebar", { activePage }) %>
+
+        <div class="flex-1 flex flex-col h-screen overflow-hidden">
+            <%- include("partials/dashboard-header") %>
+
+            <main class="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-slate-50/50">
+                <div class="mb-8">
+                    <h1 class="text-2xl font-bold text-slate-900">Pengaturan Sistem</h1>
+                    <p class="text-sm text-slate-500 mt-1">Kelola profil, notifikasi, dan preferensi aplikasi.</p>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="lg:col-span-2 space-y-6">
+                        <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+                            <h2 class="text-lg font-bold text-slate-900 mb-4">Profil Pengguna</h2>
+                            <form id="profileForm" class="space-y-6">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                    <div>
+                                        <label class="block text-sm font-semibold text-slate-700 mb-2">Nama Lengkap</label>
+                                        <input id="profileName" type="text" class="w-full px-4 py-3 border border-slate-300 rounded-xl text-sm" value="<%= currentUser?.name || 'Pengguna' %>">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-semibold text-slate-700 mb-2">Email</label>
+                                        <input type="email" class="w-full px-4 py-3 border border-slate-300 rounded-xl text-sm bg-slate-100 text-slate-500" value="<%= currentUser?.email || '-' %>" disabled>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-semibold text-slate-700 mb-2">No. Telepon</label>
+                                        <input id="profilePhone" type="text" class="w-full px-4 py-3 border border-slate-300 rounded-xl text-sm" value="<%= currentUser?.phone || '' %>" placeholder="08xxxxxxxxxx">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-semibold text-slate-700 mb-2">Role</label>
+                                        <input type="text" class="w-full px-4 py-3 border border-slate-300 rounded-xl text-sm bg-slate-100 text-slate-500" value="<%= currentUser?.role || 'user' %>" disabled>
+                                    </div>
+                                </div>
+                                <div class="flex justify-end">
+                                    <button type="submit" class="bg-primary-600 hover:bg-primary-700 text-white px-5 py-2.5 rounded-lg text-sm font-semibold">Simpan Perubahan</button>
+                                </div>
+                            </form>
+                        </div>
+
+                        <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+                            <h2 class="text-lg font-bold text-slate-900 mb-4">Preferensi Notifikasi</h2>
+                            <form id="notificationForm" class="space-y-4">
+                                <label class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-sm font-semibold text-slate-700">Notifikasi Donasi</p>
+                                        <p class="text-xs text-slate-500">Dapatkan info setiap donasi baru.</p>
+                                    </div>
+                                    <input id="notifyDonation" type="checkbox" class="h-5 w-5 text-primary-600" <%= currentUser?.notificationPrefs?.donation !== false ? 'checked' : '' %>>
+                                </label>
+                                <label class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-sm font-semibold text-slate-700">Pengingat Campaign</p>
+                                        <p class="text-xs text-slate-500">Ingatkan ketika campaign hampir selesai.</p>
+                                    </div>
+                                    <input id="notifyCampaign" type="checkbox" class="h-5 w-5 text-primary-600" <%= currentUser?.notificationPrefs?.campaign !== false ? 'checked' : '' %>>
+                                </label>
+                                <label class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-sm font-semibold text-slate-700">Newsletter</p>
+                                        <p class="text-xs text-slate-500">Update fitur baru dan cerita inspiratif.</p>
+                                    </div>
+                                    <input id="notifyNewsletter" type="checkbox" class="h-5 w-5 text-primary-600" <%= currentUser?.notificationPrefs?.newsletter ? 'checked' : '' %>>
+                                </label>
+                                <div class="flex justify-end pt-2">
+                                    <button type="submit" class="border border-slate-200 text-slate-600 px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-slate-50">Simpan Preferensi</button>
+                                </div>
+                            </form>
+                        </div>
+
+                        <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+                            <h2 class="text-lg font-bold text-slate-900 mb-4">Keamanan Akun</h2>
+                            <form id="securityForm" class="space-y-6">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                    <div>
+                                        <label class="block text-sm font-semibold text-slate-700 mb-2">Password Baru</label>
+                                        <input id="newPassword" type="password" class="w-full px-4 py-3 border border-slate-300 rounded-xl text-sm" placeholder="Minimal 6 karakter">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-semibold text-slate-700 mb-2">Konfirmasi Password</label>
+                                        <input id="confirmPassword" type="password" class="w-full px-4 py-3 border border-slate-300 rounded-xl text-sm" placeholder="Ulangi password baru">
+                                    </div>
+                                </div>
+                                <div class="flex justify-end">
+                                    <button type="submit" class="border border-slate-200 text-slate-600 px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-slate-50">Update Password</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <div class="space-y-6">
+                        <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+                            <h2 class="text-lg font-bold text-slate-900 mb-4">Ringkasan Akun</h2>
+                            <div class="space-y-4 text-sm text-slate-600">
+                                <div class="flex items-center justify-between">
+                                    <span>Status Akun</span>
+                                    <span class="text-emerald-600 font-semibold">Aktif</span>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span>Terakhir Login</span>
+                                    <span class="text-slate-700">Hari ini</span>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span>Metode Login</span>
+                                    <span class="text-slate-700"><%= currentUser?.provider ? 'Google' : 'Email' %></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-gradient-to-br from-primary-600 to-emerald-700 text-white rounded-2xl p-6 shadow-lg">
+                            <h3 class="text-lg font-bold mb-2">Butuh Bantuan?</h3>
+                            <p class="text-sm text-white/80 mb-4">Tim kami siap membantu Anda mengelola campaign dan donasi.</p>
+                            <button class="bg-white text-primary-700 px-4 py-2 rounded-lg text-sm font-semibold">Hubungi Admin</button>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script src="/js/app.js" defer></script>
+</body>
+</html>

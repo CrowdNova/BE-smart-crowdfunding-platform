@@ -40,6 +40,18 @@ const createPagesRouter = ({ getAuthUser, requirePageAuth }) => {
         res.render("buat-campaign", { activePage: "buat-campaign" });
     });
 
+    router.get("/campaign-saya", requirePageAuth, (req, res) => {
+        res.render("campaign-saya", { activePage: "campaign-saya" });
+    });
+
+    router.get("/riwayat-donasi", requirePageAuth, (req, res) => {
+        res.render("riwayat-donasi", { activePage: "riwayat-donasi" });
+    });
+
+    router.get("/pengaturan-sistem", requirePageAuth, (req, res) => {
+        res.render("pengaturan-sistem", { activePage: "pengaturan-sistem" });
+    });
+
     router.get("/campaign/:id", (req, res) => {
         res.render("detail-campaign");
     });
