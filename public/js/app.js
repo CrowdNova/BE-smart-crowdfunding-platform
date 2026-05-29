@@ -928,8 +928,16 @@ const initCampaignForm = () => {
         return;
     }
 
+    const currentUser = getCurrentUser();
+    if (!currentUser?.phone) {
+        showAlert("Lengkapi Profil", "Silakan isi No. Telepon di Pengaturan Sistem sebelum membuat campaign.", "warning");
+        window.location.href = "/pengaturan-sistem";
+        return;
+    }
+
     form.addEventListener("submit", async (event) => {
         event.preventDefault();
+        const currentUser = getCurrentUser();
         const formData = new FormData(form);
 
         const payload = {
