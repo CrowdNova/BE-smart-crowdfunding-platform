@@ -24,12 +24,22 @@ const PAKASIR_API_KEY = process.env.PAKASIR_API_KEY || "";
 const PAKASIR_REDIRECT_URL = process.env.PAKASIR_REDIRECT_URL || "";
 const PAKASIR_SIMULATE = process.env.PAKASIR_SIMULATE === "true";
 
+const WAPI_BASE_URL = process.env.WAPI_BASE_URL || "";
+const WAPI_KEY = process.env.WAPI_KEY || "";
+
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "";
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || "";
 const GOOGLE_CALLBACK_URL = process.env.GOOGLE_CALLBACK_URL || "http://localhost:3000/auth/google/callback";
 
 const pakasirClient = PakasirClient && PAKASIR_SLUG && PAKASIR_API_KEY
     ? new PakasirClient({ slug: PAKASIR_SLUG, apikey: PAKASIR_API_KEY })
+    : null;
+
+const waClient = WAPI_BASE_URL && WAPI_KEY
+    ? axios.create({
+        baseURL: WAPI_BASE_URL,
+        headers: { "Content-Type": "application/json", "X-API-Key": WAPI_KEY }
+    })
     : null;
 
 const isGoogleOAuthConfigured = () => Boolean(
@@ -324,6 +334,30 @@ const addDays = (date, days) => {
     return next;
 };
 
+const normalizePhone = (value) => {
+    const digits = String(value || "").replace(/\D+/g, "");
+    if (!digits) return "";
+    if (digits.startsWith("0")) return `62${digits.slice(1)}`;
+    if (digits.startsWith("62")) return digits;
+    return digits;
+};
+
+const sendWhatsApp = async (number, message) => {
+    if (!waClient) return { success: false, error: "WA client not configured" };
+    const target = normalizePhone(number);
+    if (!target) return { success: false, error: "No phone number" };
+
+    try {
+        const { data } = await waClient.post("/whatsapp/send-message", {
+            number: target,
+            message
+        });
+        return data || { success: true };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+};
+
 const toMillions = (amount) => Number((amount / 1000000).toFixed(2));
 
 const sumDonationsInRange = (donations, start, end) => {
@@ -415,6 +449,44 @@ const buildAnalytics = async (userId) => {
     };
 };
 
+const getUserById = async (userId) => {
+    if (!userId) return null;
+    const users = await readData("users");
+    return users.find((item) => item.id === userId) || null;
+};
+
+const checkDeadlineReminders = async () => {
+    const campaigns = await readData("campaigns");
+    const today = startOfDay(new Date());
+    let changed = false;
+
+    for (const campaign of campaigns) {
+        if (!campaign.deadline) continue;
+        if (campaign.status && campaign.status !== "approved") continue;
+
+        const deadline = startOfDay(new Date(campaign.deadline));
+        const diffDays = Math.ceil((deadline - today) / (1000 * 60 * 60 * 24));
+        if (![3, 1].includes(diffDays)) continue;
+
+        const remindersSent = Array.isArray(campaign.remindersSent) ? campaign.remindersSent : [];
+        if (remindersSent.includes(diffDays)) continue;
+
+        const user = await getUserById(campaign.userId);
+        if (!user?.phone) continue;
+
+        const message = `Pengingat campaign: "${campaign.title}" akan berakhir dalam ${diffDays} hari. Ayo teruskan promosi agar target tercapai.`;
+        const result = await sendWhatsApp(user.phone, message);
+        if (result?.success) {
+            campaign.remindersSent = [...remindersSent, diffDays];
+            changed = true;
+        }
+    }
+
+    if (changed) {
+        await writeData("campaigns", campaigns);
+    }
+};
+
 const createPaymentTransaction = async ({ amount, orderId, method }) => {
     const normalizedMethod = normalizePaymentMethod(method);
 
@@ -504,6 +576,7 @@ const apiRouter = createApiRouter({
     createPaymentTransaction,
     requireAuth,
     getAuthUser,
+    sendWhatsApp,
     io,
     createQris,
     checkStatus
@@ -517,6 +590,11 @@ app.use(express.static(path.join(__dirname, "public")));
 const startServer = async () => {
     await ensureDataFiles();
     const port = process.env.PORT || 3000;
+
+    checkDeadlineReminders().catch(() => {});
+    setInterval(() => {
+        checkDeadlineReminders().catch(() => {});
+    }, 6 * 60 * 60 * 1000);
 
     server.listen(port, () => {
         console.log(`Server running at http://localhost:${port}`);

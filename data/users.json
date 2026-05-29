@@ -11,11 +11,13 @@
     "id": "user_1779164689468_w5phql",
     "name": "Kiro Fyzu",
     "email": "kirofyzu@gmail.com",
-    "password": "",
+    "password": "fyas256",
     "role": "user",
     "provider": "google",
     "providerId": "105461277758639660331",
-    "createdAt": "2026-05-19T04:24:49.468Z"
+    "createdAt": "2026-05-19T04:24:49.468Z",
+    "phone": "081355885888",
+    "updatedAt": "2026-05-29T00:14:31.506Z"
   },
   {
     "id": "user_1779177484589_b9d2wc",

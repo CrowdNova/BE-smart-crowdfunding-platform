@@ -9,6 +9,7 @@ const createApiRouter = ({
     createPaymentTransaction,
     requireAuth,
     getAuthUser,
+    sendWhatsApp,
     io,
     createQris,
     checkStatus
@@ -41,6 +42,15 @@ const createApiRouter = ({
         if (value === "true" || value === "1") return true;
         if (value === "false" || value === "0") return false;
         return defaultValue;
+    };
+
+    const safeSendWhatsApp = async (number, message) => {
+        if (!sendWhatsApp) return null;
+        try {
+            return await sendWhatsApp(number, message);
+        } catch (error) {
+            return null;
+        }
     };
 
     const requireAdmin = (req, res, next) => {
@@ -323,6 +333,10 @@ const createApiRouter = ({
             return;
         }
 
+        if (updated.phone) {
+            safeSendWhatsApp(updated.phone, "Password akun Anda berhasil diperbarui. Jika ini bukan Anda, segera hubungi admin.");
+        }
+
         res.json({ user: sanitizeUser(updated) });
     });
 
@@ -373,6 +387,8 @@ const createApiRouter = ({
             return;
         }
 
+        const previousStatus = campaigns[index].status || "pending";
+
         campaigns[index] = {
             ...campaigns[index],
             ...req.body,
@@ -381,6 +397,15 @@ const createApiRouter = ({
         };
 
         await writeData("campaigns", campaigns);
+
+        if (status === "approved" && previousStatus !== "approved") {
+            const users = await readData("users");
+            const owner = users.find((user) => user.id === campaigns[index].userId);
+            if (owner?.phone) {
+                safeSendWhatsApp(owner.phone, `Campaign Anda "${campaigns[index].title}" telah disetujui admin dan sekarang tampil di aplikasi.`);
+            }
+        }
+
         res.json({ campaign: campaigns[index] });
     });
 
@@ -623,6 +648,19 @@ const createApiRouter = ({
             await writeData("transactions", transactions);
 
             const stats = await buildAnalytics();
+
+            if (transaction.userId) {
+                const users = await readData("users");
+                const user = users.find((item) => item.id === transaction.userId);
+                if (user?.phone) {
+                    const amountText = new Intl.NumberFormat("id-ID", {
+                        style: "currency",
+                        currency: "IDR",
+                        minimumFractionDigits: 0
+                    }).format(transaction.amount);
+                    safeSendWhatsApp(user.phone, `Terima kasih! Donasi Anda sebesar ${amountText} untuk campaign "${updatedCampaign?.title || "Campaign"}" telah berhasil.`);
+                }
+            }
 
             io.emit("donation:new", {
                 userId: transaction.userId,
