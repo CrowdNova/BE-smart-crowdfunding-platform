@@ -6,6 +6,7 @@
     <title>Detail Campaign - CrowdFund</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="/js/tailwind-config.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="/css/style.css">
@@ -48,6 +49,52 @@
                         <p>Mari kita bantu Nisa untuk mendapatkan senyum sehatnya kembali. Bantuan sekecil apapun dari teman-teman akan sangat berarti bagi kelangsungan hidup Nisa.</p>
                     </div>
                 </div>
+
+                <div id="campaignUpdatePanel" class="hidden bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-slate-100 mb-8">
+                    <h2 class="text-xl font-bold text-slate-900 mb-2">Tambah Update Progres</h2>
+                    <p class="text-sm text-slate-500 mb-5">Bagikan perkembangan terbaru agar donatur bisa mengikuti penggunaan dana.</p>
+                    <form id="campaignUpdateForm" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-2">Judul Update</label>
+                            <input name="title" type="text" required class="w-full px-4 py-3 border border-slate-300 rounded-xl text-sm outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/10" placeholder="Contoh: Tahap operasi pertama selesai">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-2">Isi Update</label>
+                            <textarea name="body" rows="4" required class="w-full px-4 py-3 border border-slate-300 rounded-xl text-sm outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/10" placeholder="Ceritakan perkembangan terbaru campaign..."></textarea>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 sm:items-end">
+                            <div>
+                                <label class="block text-sm font-semibold text-slate-700 mb-2">Progres Penggunaan Dana (%)</label>
+                                <input name="progressPercent" type="number" min="0" max="100" class="w-full px-4 py-3 border border-slate-300 rounded-xl text-sm outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/10" placeholder="Opsional">
+                            </div>
+                            <button type="submit" class="px-5 py-3 rounded-xl bg-primary-600 hover:bg-primary-700 text-white text-sm font-bold">
+                                Simpan Update
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-slate-100 mb-8">
+                    <div class="flex items-center justify-between mb-6">
+                        <div>
+                            <h2 class="text-xl font-bold text-slate-900">Update Progres</h2>
+                            <p class="text-sm text-slate-500 mt-1">Timeline perkembangan dari penggalang dana.</p>
+                        </div>
+                        <i class="ph ph-flag-pennant text-2xl text-primary-600"></i>
+                    </div>
+                    <div id="campaignUpdatesList"></div>
+                </div>
+
+                <div class="bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-slate-100">
+                    <div class="flex items-center justify-between mb-6">
+                        <div>
+                            <h2 class="text-xl font-bold text-slate-900">Doa Donatur</h2>
+                            <p class="text-sm text-slate-500 mt-1">Komentar dan doa dari donatur terbaru.</p>
+                        </div>
+                        <i class="ph ph-chat-circle-heart text-2xl text-primary-600"></i>
+                    </div>
+                    <div id="campaignDonationMessages" class="space-y-3"></div>
+                </div>
             </div>
 
             <div class="w-full lg:w-1/3">
@@ -71,9 +118,15 @@
                         </div>
                     </div>
 
-                    <a href="<%= currentUser ? '/dashboard' : '/login' %>" class="block w-full bg-primary-600 hover:bg-primary-700 text-white font-bold py-3.5 rounded-xl text-center shadow-sm transition-colors mb-4">
-                        Donasi Sekarang
-                    </a>
+                    <% if (currentUser) { %>
+                        <button id="detailDonateButton" type="button" class="block w-full bg-primary-600 hover:bg-primary-700 text-white font-bold py-3.5 rounded-xl text-center shadow-sm transition-colors mb-4">
+                            Donasi Sekarang
+                        </button>
+                    <% } else { %>
+                        <a href="/login" class="block w-full bg-primary-600 hover:bg-primary-700 text-white font-bold py-3.5 rounded-xl text-center shadow-sm transition-colors mb-4">
+                            Donasi Sekarang
+                        </a>
+                    <% } %>
 
                     <div class="border-t border-slate-100 pt-4 mt-2">
                         <p class="text-xs text-slate-400 uppercase tracking-wider mb-3">Penggalang Dana</p>
@@ -92,6 +145,91 @@
         </div>
     </div>
 
+    <div id="donationModal" class="fixed inset-0 z-50 hidden flex items-center justify-center">
+        <div class="absolute inset-0 bg-slate-900/40 modal-backdrop transition-opacity" onclick="closeDonationModal()"></div>
+        <div class="bg-white rounded-2xl w-full max-w-md mx-4 relative z-10 shadow-2xl transform scale-95 transition-transform duration-300" id="modalContent">
+            <div class="px-6 py-4 border-b flex justify-between items-center">
+                <h3 class="font-bold text-lg">Donasi Sekarang</h3>
+                <button onclick="closeDonationModal()" class="text-slate-400 hover:text-slate-600"><i class="ph ph-x text-xl"></i></button>
+            </div>
+            <div class="p-6">
+                <p class="text-sm text-slate-500 mb-1">Kampanye:</p>
+                <p class="font-bold mb-5" id="modalCampaignTitle"></p>
+
+                <div class="mb-5">
+                    <label class="block text-sm font-medium text-slate-700 mb-2">Pilih Nominal</label>
+                    <div class="grid grid-cols-3 gap-2 mb-3">
+                        <button onclick="setNominal(50000)" class="border rounded-lg py-2 text-sm hover:border-primary-500">50k</button>
+                        <button onclick="setNominal(100000)" class="border rounded-lg py-2 text-sm hover:border-primary-500">100k</button>
+                        <button onclick="setNominal(250000)" class="border rounded-lg py-2 text-sm hover:border-primary-500">250k</button>
+                    </div>
+                    <input type="number" id="inputNominal" class="w-full p-2.5 border rounded-lg" placeholder="Nominal lain (Min 10.000)...">
+                </div>
+
+                <div class="mb-5">
+                    <label class="block text-sm font-medium text-slate-700 mb-2">Metode Pembayaran</label>
+                    <select id="paymentMethod" class="w-full p-2.5 border rounded-lg bg-white">
+                        <option value="qris">QRIS</option>
+                        <option value="bni_va">BNI Virtual Account</option>
+                        <option value="bri_va">BRI Virtual Account</option>
+                        <option value="permata_va">Permata Virtual Account</option>
+                        <option value="atm_bersama_va">ATM Bersama Virtual Account</option>
+                        <option value="paypal">PayPal</option>
+                    </select>
+                </div>
+
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-slate-700 mb-2">Doa / Komentar</label>
+                    <textarea id="donorMessage" rows="3" maxlength="240" class="w-full p-2.5 border rounded-lg text-sm outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/10" placeholder="Tulis doa singkat untuk campaign ini..."></textarea>
+                </div>
+
+                <button onclick="processDonation()" class="w-full bg-primary-600 text-white font-bold py-3 rounded-lg hover:bg-primary-700 transition-colors">
+                    Bayar Sekarang
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="qrisPaymentModal" class="fixed inset-0 z-50 hidden flex items-center justify-center">
+        <div class="absolute inset-0 bg-slate-900/60 modal-backdrop transition-opacity" onclick="closeQrisPaymentModal()"></div>
+        <div class="bg-white rounded-2xl w-full max-w-md mx-4 relative z-10 shadow-2xl overflow-hidden transform scale-95 transition-transform duration-300" id="qrisModalContent">
+            <div class="px-6 py-4 border-b flex justify-between items-center bg-slate-50">
+                <div class="flex items-center space-x-2">
+                    <i class="ph-fill ph-qr-code text-primary-600 text-2xl"></i>
+                    <h3 class="font-bold text-lg text-slate-900">Pembayaran QRIS</h3>
+                </div>
+                <button onclick="closeQrisPaymentModal()" class="text-slate-400 hover:text-slate-600"><i class="ph ph-x text-xl"></i></button>
+            </div>
+
+            <div class="p-6 flex flex-col items-center">
+                <div id="qrisDemoBadge" class="hidden mb-4 bg-amber-50 text-amber-800 border border-amber-200 px-3 py-1 rounded-full text-xs font-semibold flex items-center space-x-1">
+                    <i class="ph-fill ph-info"></i>
+                    <span>Mode Demo (Project Inactive)</span>
+                </div>
+                <p class="text-xs text-slate-400 uppercase tracking-wider mb-1">Nominal Donasi</p>
+                <p class="text-2xl font-black text-slate-900 mb-4" id="qrisModalAmount">Rp 0</p>
+                <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 flex items-center justify-center w-64 h-64 shadow-inner relative overflow-hidden mb-4">
+                    <img id="qrisModalImage" src="" alt="QRIS QR Code" class="w-full h-full object-contain" onload="document.getElementById('qrisModalLoader').classList.add('hidden')">
+                    <div id="qrisModalLoader" class="absolute inset-0 bg-white/95 flex flex-col items-center justify-center">
+                        <div class="animate-spin rounded-full h-10 w-10 border-4 border-primary-500 border-t-transparent mb-2"></div>
+                        <p class="text-xs font-semibold text-slate-500">Membuat QRIS...</p>
+                    </div>
+                </div>
+                <div class="text-center max-w-xs mb-6">
+                    <p class="text-sm font-semibold text-slate-800" id="qrisModalCampaign">Nama Campaign</p>
+                    <p class="text-xs text-slate-500 mt-1">Silakan scan kode QRIS di atas menggunakan aplikasi dompet digital Anda.</p>
+                </div>
+                <button id="qrisDemoBtn" onclick="simulateQrisSuccess()" class="hidden w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl transition-all shadow-md shadow-emerald-200 flex items-center justify-center space-x-2">
+                    <i class="ph ph-check-circle text-lg"></i>
+                    <span>Simulasikan Pembayaran Sukses</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col gap-3 pointer-events-none"></div>
+
+    <script src="/socket.io/socket.io.js"></script>
     <script src="/js/app.js" defer></script>
 </body>
 </html>

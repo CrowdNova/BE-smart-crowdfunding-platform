@@ -19,6 +19,10 @@ const state = {
     chartInstance: null,
     chartData: DEFAULT_CHART_DATA,
     campaigns: [],
+    campaignFilters: {
+        search: "",
+        category: ""
+    },
     currentCampaignId: null,
     currentCampaignCurrentAmount: 0
 };
@@ -78,13 +82,16 @@ const formatDateTime = (value) => {
 };
 
 const fetchJson = async (url, options = {}) => {
+    const isFormData = typeof FormData !== "undefined" && options.body instanceof FormData;
+    const headers = {
+        ...getAuthHeaders(),
+        ...(isFormData ? {} : { "Content-Type": "application/json" }),
+        ...(options.headers || {})
+    };
+
     const response = await fetch(`${API_BASE}${url}`, {
         credentials: "same-origin",
-        headers: {
-            "Content-Type": "application/json",
-            ...getAuthHeaders(),
-            ...(options.headers || {})
-        },
+        headers,
         ...options
     });
 
@@ -187,6 +194,44 @@ const getCampaignById = (id) => {
     return state.campaigns.find((campaign) => campaign.id === id);
 };
 
+const upsertCampaign = (campaign) => {
+    if (!campaign || !campaign.id) return;
+    const index = state.campaigns.findIndex((item) => item.id === campaign.id);
+    if (index === -1) {
+        state.campaigns.push(campaign);
+    } else {
+        state.campaigns[index] = campaign;
+    }
+};
+
+const getFilteredCampaigns = () => {
+    const search = state.campaignFilters.search.toLowerCase();
+    const category = state.campaignFilters.category;
+
+    return state.campaigns.filter((campaign) => {
+        const matchesCategory = !category || campaign.category === category;
+        const matchesSearch = !search || [
+            campaign.title,
+            campaign.category,
+            campaign.organizer,
+            campaign.story
+        ].join(" ").toLowerCase().includes(search);
+        return matchesCategory && matchesSearch;
+    });
+};
+
+const updateCampaignFilterSummary = (total, visible) => {
+    const summary = document.getElementById("campaignFilterSummary");
+    if (!summary) return;
+
+    if (!state.campaignFilters.search && !state.campaignFilters.category) {
+        summary.textContent = `${total.toLocaleString("id-ID")} campaign aktif tersedia`;
+        return;
+    }
+
+    summary.textContent = `${visible.toLocaleString("id-ID")} dari ${total.toLocaleString("id-ID")} campaign cocok dengan filter`;
+};
+
 const updateCampaignCard = (card, campaign) => {
     if (!campaign) return;
 
@@ -218,6 +263,9 @@ const renderCampaignGrid = () => {
     const grid = document.getElementById("campaignGrid");
     if (!grid) return;
 
+    const filteredCampaigns = getFilteredCampaigns();
+    updateCampaignFilterSummary(state.campaigns.length, filteredCampaigns.length);
+
     if (!state.campaigns || state.campaigns.length === 0) {
         grid.innerHTML = `
             <div class="col-span-full text-center py-12 bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col items-center justify-center">
@@ -228,7 +276,18 @@ const renderCampaignGrid = () => {
         return;
     }
 
-    grid.innerHTML = state.campaigns.map((campaign) => {
+    if (filteredCampaigns.length === 0) {
+        grid.innerHTML = `
+            <div class="col-span-full text-center py-12 bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col items-center justify-center">
+                <i class="ph ph-magnifying-glass text-4xl text-slate-300 mb-2"></i>
+                <p class="text-slate-700 font-semibold">Campaign tidak ditemukan.</p>
+                <p class="text-sm text-slate-500 mt-1">Coba kata kunci atau kategori lain.</p>
+            </div>
+        `;
+        return;
+    }
+
+    grid.innerHTML = filteredCampaigns.map((campaign) => {
         const progress = campaign.targetAmount
             ? Math.min((campaign.currentAmount / campaign.targetAmount) * 100, 100)
             : 0;
@@ -255,6 +314,7 @@ const renderCampaignGrid = () => {
                 <div class="p-5 flex-1 flex flex-col">
                     <div class="text-xs font-medium ${colorClass} mb-2">${escapeHtml(campaign.category || 'Campaign')}</div>
                     <a class="font-bold text-slate-900 mb-2 hover:text-primary-600 cursor-pointer transition-colors" href="/campaign/${campaign.id}">${escapeHtml(campaign.title)}</a>
+                    <p class="text-xs text-slate-500 mb-4">${(campaign.donorsCount || 0).toLocaleString("id-ID")} donatur</p>
                     <div class="mt-auto">
                         <div class="w-full bg-slate-100 rounded-full h-2 mb-2 overflow-hidden">
                             <div class="${progressBg} h-2 rounded-full" style="width: ${progress}%"></div>
@@ -279,6 +339,38 @@ const syncCampaignCards = () => {
 
 const syncDonationButtons = () => {
     // Buttons are dynamically handled via onclick on campaign cards.
+};
+
+const initCampaignFilters = () => {
+    const searchInput = document.getElementById("campaignSearch");
+    const categorySelect = document.getElementById("campaignCategoryFilter");
+    const clearButton = document.getElementById("campaignClearFilter");
+
+    if (!searchInput && !categorySelect && !clearButton) return;
+
+    if (searchInput) {
+        searchInput.addEventListener("input", () => {
+            state.campaignFilters.search = searchInput.value.trim();
+            renderCampaignGrid();
+        });
+    }
+
+    if (categorySelect) {
+        categorySelect.addEventListener("change", () => {
+            state.campaignFilters.category = categorySelect.value;
+            renderCampaignGrid();
+        });
+    }
+
+    if (clearButton) {
+        clearButton.addEventListener("click", () => {
+            state.campaignFilters.search = "";
+            state.campaignFilters.category = "";
+            if (searchInput) searchInput.value = "";
+            if (categorySelect) categorySelect.value = "";
+            renderCampaignGrid();
+        });
+    }
 };
 
 const updateStatsUI = (stats) => {
@@ -561,6 +653,9 @@ window.openDonationModal = (id, title, currentAmount) => {
     const inputNominal = document.getElementById("inputNominal");
     if (inputNominal) inputNominal.value = "";
 
+    const donorMessage = document.getElementById("donorMessage");
+    if (donorMessage) donorMessage.value = "";
+
     state.currentCampaignCurrentAmount = modalAmount;
 
     const modal = document.getElementById("donationModal");
@@ -663,6 +758,7 @@ const startQrisPolling = (orderId, amount) => {
 
                 // Reload campaigns to update progress
                 loadCampaigns();
+                initCampaignDetail();
             }
         } catch (err) {
             console.error("Error polling transaction:", err.message);
@@ -694,6 +790,7 @@ window.processDonation = async () => {
     }
     const amountValue = parseInt(document.getElementById("inputNominal")?.value, 10);
     const method = document.getElementById("paymentMethod")?.value || "qris";
+    const message = document.getElementById("donorMessage")?.value.trim() || "";
 
     if (!amountValue || amountValue < 10000) {
         showAlert("Oops!", "Minimal donasi adalah Rp 10.000", "warning");
@@ -728,7 +825,8 @@ window.processDonation = async () => {
                 campaignId: state.currentCampaignId,
                 amount: amountValue,
                 method,
-                donorName
+                donorName,
+                message
             })
         });
 
@@ -768,16 +866,12 @@ const loadAnalytics = async () => {
 
 const loadCampaigns = async () => {
     const grid = document.getElementById("campaignGrid");
-    if (!grid && !document.getElementById("campaignTitle")) return;
+    if (!grid) return;
 
     try {
         const campaigns = await fetchJson("/api/campaigns");
         state.campaigns = Array.isArray(campaigns) ? campaigns : [];
-        if (grid) {
-            renderCampaignGrid();
-        } else {
-            initCampaignDetail();
-        }
+        renderCampaignGrid();
     } catch (error) {
         // Fallback silently if server not available.
     }
@@ -937,23 +1031,13 @@ const initCampaignForm = () => {
 
     form.addEventListener("submit", async (event) => {
         event.preventDefault();
-        const currentUser = getCurrentUser();
         const formData = new FormData(form);
-
-        const payload = {
-            title: formData.get("title"),
-            targetAmount: formData.get("targetAmount"),
-            deadline: formData.get("deadline"),
-            category: formData.get("category"),
-            story: formData.get("story"),
-            imageUrl: formData.get("imageUrl"),
-            organizer: getCurrentUser()?.name
-        };
+        formData.set("organizer", getCurrentUser()?.name || "Penggalang Dana");
 
         try {
             await fetchJson("/api/campaigns", {
                 method: "POST",
-                body: JSON.stringify(payload)
+                body: formData
             });
 
             showAlert("Berhasil", "Campaign berhasil dibuat dan menunggu persetujuan admin.", "success");
@@ -962,6 +1046,27 @@ const initCampaignForm = () => {
         } catch (error) {
             showAlert("Gagal", error.message || "Gagal membuat campaign.", "error");
         }
+    });
+};
+
+const initCampaignImagePreview = () => {
+    const input = document.getElementById("campaignImageFile");
+    const preview = document.getElementById("campaignImagePreview");
+    const fileName = document.getElementById("campaignImageFileName");
+
+    if (!input || !preview) return;
+
+    input.addEventListener("change", () => {
+        const file = input.files?.[0];
+        if (!file) {
+            preview.classList.add("hidden");
+            if (fileName) fileName.textContent = "PNG atau JPG maksimal 5MB";
+            return;
+        }
+
+        if (fileName) fileName.textContent = file.name;
+        preview.src = URL.createObjectURL(file);
+        preview.classList.remove("hidden");
     });
 };
 
@@ -1158,6 +1263,122 @@ const initNotificationPanel = () => {
     }
 };
 
+const renderCampaignUpdates = (campaign) => {
+    const list = document.getElementById("campaignUpdatesList");
+    if (!list) return;
+
+    const updates = Array.isArray(campaign.updates) ? campaign.updates : [];
+    if (updates.length === 0) {
+        list.innerHTML = `
+            <div class="text-center py-8 bg-slate-50 rounded-2xl border border-slate-100">
+                <i class="ph ph-flag-pennant text-4xl text-slate-300 mb-2"></i>
+                <p class="text-slate-500 font-medium">Belum ada update progres.</p>
+            </div>
+        `;
+        return;
+    }
+
+    list.innerHTML = updates.map((update) => {
+        const progress = Number.isFinite(Number(update.progressPercent)) ? Number(update.progressPercent) : null;
+        return `
+            <div class="relative pl-6 pb-6 last:pb-0">
+                <div class="absolute left-0 top-1.5 w-3 h-3 rounded-full bg-primary-500 ring-4 ring-primary-100"></div>
+                <div class="absolute left-1.5 top-5 bottom-0 w-px bg-slate-200 last:hidden"></div>
+                <div class="bg-slate-50 rounded-2xl border border-slate-100 p-4">
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
+                        <h3 class="text-sm font-bold text-slate-900">${escapeHtml(update.title || 'Update Campaign')}</h3>
+                        <span class="text-xs text-slate-400">${formatDateTime(update.createdAt)}</span>
+                    </div>
+                    <p class="text-sm text-slate-600 leading-relaxed whitespace-pre-line">${escapeHtml(update.body || '')}</p>
+                    ${progress === null ? "" : `
+                        <div class="mt-4">
+                            <div class="flex items-center justify-between text-xs text-slate-500 mb-1">
+                                <span>Progres penggunaan dana</span>
+                                <span class="font-semibold text-primary-700">${progress}%</span>
+                            </div>
+                            <div class="w-full bg-white rounded-full h-2 overflow-hidden border border-slate-100">
+                                <div class="bg-primary-500 h-2 rounded-full" style="width: ${progress}%"></div>
+                            </div>
+                        </div>
+                    `}
+                </div>
+            </div>
+        `;
+    }).join("");
+};
+
+const renderCampaignDonationMessages = (donations) => {
+    const list = document.getElementById("campaignDonationMessages");
+    if (!list) return;
+
+    const items = Array.isArray(donations) ? donations : [];
+    if (items.length === 0) {
+        list.innerHTML = `
+            <div class="text-center py-8 bg-slate-50 rounded-2xl border border-slate-100">
+                <i class="ph ph-chat-circle-text text-4xl text-slate-300 mb-2"></i>
+                <p class="text-slate-500 font-medium">Belum ada doa dari donatur.</p>
+            </div>
+        `;
+        return;
+    }
+
+    list.innerHTML = items.map((donation) => {
+        const initials = (donation.donorName || "HA").slice(0, 2).toUpperCase();
+        return `
+            <div class="bg-slate-50 rounded-2xl border border-slate-100 p-4">
+                <div class="flex items-start gap-3">
+                    <div class="w-10 h-10 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-xs font-bold flex-shrink-0">${escapeHtml(initials)}</div>
+                    <div class="min-w-0 flex-1">
+                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                            <p class="text-sm font-semibold text-slate-900">${escapeHtml(donation.donorName || 'Hamba Allah')}</p>
+                            <p class="text-xs text-slate-400">${formatDateTime(donation.createdAt)}</p>
+                        </div>
+                        <p class="text-xs font-semibold text-emerald-600 mt-1">${formatRupiah(donation.amount || 0)}</p>
+                        <p class="text-sm text-slate-600 mt-2 leading-relaxed">${escapeHtml(donation.message || 'Semoga campaign ini lancar dan membawa manfaat.')}</p>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join("");
+};
+
+const initCampaignUpdateForm = (campaign) => {
+    const panel = document.getElementById("campaignUpdatePanel");
+    const form = document.getElementById("campaignUpdateForm");
+    if (!panel || !form) return;
+
+    if (!campaign.canManage) {
+        panel.classList.add("hidden");
+        return;
+    }
+
+    panel.classList.remove("hidden");
+    if (form.dataset.bound === "true") return;
+    form.dataset.bound = "true";
+
+    form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const formData = new FormData(form);
+        const payload = {
+            title: formData.get("title"),
+            body: formData.get("body"),
+            progressPercent: formData.get("progressPercent")
+        };
+
+        try {
+            const response = await fetchJson(`/api/campaigns/${campaign.id}/updates`, {
+                method: "POST",
+                body: JSON.stringify(payload)
+            });
+            form.reset();
+            renderCampaignUpdates(response.campaign || campaign);
+            showAlert("Berhasil", "Update progres campaign berhasil ditambahkan.", "success");
+        } catch (error) {
+            showAlert("Gagal", error.message || "Gagal menambah update campaign.", "error");
+        }
+    });
+};
+
 const initCampaignDetail = async () => {
     const titleEl = document.getElementById("campaignTitle");
     if (!titleEl) return;
@@ -1171,9 +1392,11 @@ const initCampaignDetail = async () => {
         }
     }
     if (!campaignId) return;
+    state.currentCampaignId = campaignId;
 
     try {
         const campaign = await fetchJson(`/api/campaigns/${campaignId}`);
+        upsertCampaign(campaign);
 
         const breadcrumbEl = document.getElementById("campaignBreadcrumb");
         const imageEl = document.getElementById("campaignImage");
@@ -1184,6 +1407,7 @@ const initCampaignDetail = async () => {
         const donorsEl = document.getElementById("campaignDonors");
         const daysLeftEl = document.getElementById("campaignDaysLeft");
         const organizerEl = document.getElementById("campaignOrganizer");
+        const donateButton = document.getElementById("detailDonateButton");
 
         if (breadcrumbEl) breadcrumbEl.textContent = campaign.title;
         titleEl.textContent = campaign.title;
@@ -1202,11 +1426,19 @@ const initCampaignDetail = async () => {
             storyEl.innerHTML = paragraphs.map((line) => `<p>${escapeHtml(line)}</p>`).join("");
         }
 
-        if (donorsEl) donorsEl.textContent = "--";
+        if (donorsEl) donorsEl.textContent = (campaign.donorsCount || 0).toLocaleString("id-ID");
         if (daysLeftEl && campaign.deadline) {
             const diff = Math.ceil((new Date(campaign.deadline) - new Date()) / (1000 * 60 * 60 * 24));
             daysLeftEl.textContent = diff > 0 ? diff.toString() : "0";
         }
+
+        if (donateButton) {
+            donateButton.addEventListener("click", () => openDonationModal(campaign.id));
+        }
+
+        renderCampaignUpdates(campaign);
+        renderCampaignDonationMessages(campaign.recentDonations);
+        initCampaignUpdateForm(campaign);
     } catch (error) {
         // Ignore detail errors for now.
     }
@@ -1236,6 +1468,17 @@ const initRealtime = () => {
             addRecentTransaction(payload.donation);
         }
     });
+
+    socket.on("campaign:update", (payload) => {
+        if (payload.campaign) {
+            upsertCampaign(payload.campaign);
+            syncCampaignCards();
+            const detailTitle = document.getElementById("campaignTitle");
+            if (detailTitle && payload.campaignId === state.currentCampaignId) {
+                renderCampaignUpdates(payload.campaign);
+            }
+        }
+    });
 };
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -1246,7 +1489,9 @@ document.addEventListener("DOMContentLoaded", () => {
     loadMyCampaigns();
     loadDonationHistory();
     syncDonationButtons();
+    initCampaignFilters();
     initCampaignForm();
+    initCampaignImagePreview();
     initAuthForms();
     initSettingsForms();
     initNotificationPanel();

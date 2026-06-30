@@ -585,6 +585,19 @@ const apiRouter = createApiRouter({
 app.use("/", pagesRouter);
 app.use("/", authRouter);
 app.use("/api", apiRouter);
+app.use("/api", (error, req, res, next) => {
+    if (!error) {
+        next();
+        return;
+    }
+
+    const status = error.code === "LIMIT_FILE_SIZE" ? 413 : 400;
+    const message = error.code === "LIMIT_FILE_SIZE"
+        ? "Ukuran gambar maksimal 5MB."
+        : error.message || "Request tidak valid.";
+
+    res.status(status).json({ message });
+});
 app.use(express.static(path.join(__dirname, "public")));
 
 const startServer = async () => {

@@ -1,4 +1,32 @@
 const express = require("express");
+const fs = require("fs");
+const path = require("path");
+const multer = require("multer");
+
+const UPLOAD_DIR = path.join(__dirname, "..", "public", "uploads");
+fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+
+const upload = multer({
+    storage: multer.diskStorage({
+        destination: (req, file, cb) => cb(null, UPLOAD_DIR),
+        filename: (req, file, cb) => {
+            const ext = path.extname(file.originalname || "").toLowerCase();
+            const base = path.basename(file.originalname || "campaign", ext)
+                .replace(/[^a-z0-9_-]+/gi, "-")
+                .replace(/^-+|-+$/g, "")
+                .slice(0, 40) || "campaign";
+            cb(null, `${Date.now()}-${base}${ext}`);
+        }
+    }),
+    limits: { fileSize: 5 * 1024 * 1024 },
+    fileFilter: (req, file, cb) => {
+        if (!file.mimetype || !file.mimetype.startsWith("image/")) {
+            cb(new Error("File harus berupa gambar."));
+            return;
+        }
+        cb(null, true);
+    }
+});
 
 const createApiRouter = ({
     readData,
@@ -75,6 +103,14 @@ const createApiRouter = ({
         }
     };
 
+    const canManageCampaign = (campaign, user) => Boolean(user && (
+        user.role === "admin" ||
+        campaign.userId === user.id ||
+        campaign.organizer === user.name
+    ));
+
+    const normalizeText = (value) => (value || "").toString().trim();
+
     router.get("/health", (req, res) => {
         res.json({ status: "ok" });
     });
@@ -86,7 +122,28 @@ const createApiRouter = ({
 
     router.get("/campaigns", async (req, res) => {
         const campaigns = await readData("campaigns");
-        const visible = campaigns.filter((item) => item.status !== "pending" && item.status !== "rejected");
+        const donations = await readData("donations");
+        const q = normalizeText(req.query.q).toLowerCase();
+        const category = normalizeText(req.query.category).toLowerCase();
+
+        const visible = campaigns
+            .filter((item) => item.status !== "pending" && item.status !== "rejected")
+            .filter((item) => {
+                if (!q) return true;
+                const haystack = [
+                    item.title,
+                    item.category,
+                    item.organizer,
+                    item.story
+                ].join(" ").toLowerCase();
+                return haystack.includes(q);
+            })
+            .filter((item) => !category || (item.category || "").toLowerCase() === category)
+            .map((campaign) => ({
+                ...campaign,
+                donorsCount: donations.filter((d) => d.campaignId === campaign.id).length
+            }));
+
         res.json(visible);
     });
 
@@ -112,16 +169,30 @@ const createApiRouter = ({
         }
 
         // Count successful donations
+        const user = await getOptionalUser(req);
         const donations = await readData("donations");
-        const donorsCount = donations.filter((d) => d.campaignId === campaign.id).length;
+        const campaignDonations = donations
+            .filter((d) => d.campaignId === campaign.id)
+            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        const donorsCount = campaignDonations.length;
+        const recentDonations = campaignDonations.slice(0, 10).map((donation) => ({
+            id: donation.id,
+            donorName: donation.donorName || "Hamba Allah",
+            amount: donation.amount,
+            method: donation.method,
+            message: donation.message || "",
+            createdAt: donation.createdAt
+        }));
 
         res.json({
             ...campaign,
-            donorsCount
+            donorsCount,
+            recentDonations,
+            canManage: canManageCampaign(campaign, user)
         });
     });
 
-    router.post("/campaigns", requireAuth, async (req, res) => {
+    router.post("/campaigns", requireAuth, upload.single("imageFile"), async (req, res) => {
         const { title, category, targetAmount, deadline, story, imageUrl, organizer } = req.body;
 
         if (!title || !category || !targetAmount || !deadline || !story) {
@@ -140,11 +211,12 @@ const createApiRouter = ({
             targetAmount: normalizeAmount(targetAmount),
             currentAmount: 0,
             deadline,
-            imageUrl: imageUrl || "https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?w=1000&auto=format&fit=crop",
+            imageUrl: req.file ? `/uploads/${req.file.filename}` : imageUrl || "https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?w=1000&auto=format&fit=crop",
             story,
             organizer: organizer || req.authUser?.name || "Penggalang Dana",
             userId: req.authUser?.id || null,
             status,
+            updates: [],
             approvedAt: status === "approved" ? new Date().toISOString() : null,
             createdAt: new Date().toISOString()
         };
@@ -153,6 +225,59 @@ const createApiRouter = ({
         await writeData("campaigns", campaigns);
 
         res.status(201).json(payload);
+    });
+
+    router.post("/campaigns/:id/updates", requireAuth, async (req, res) => {
+        const campaigns = await readData("campaigns");
+        const index = campaigns.findIndex((item) => item.id === req.params.id);
+        if (index === -1) {
+            res.status(404).json({ message: "Campaign tidak ditemukan." });
+            return;
+        }
+
+        const campaign = campaigns[index];
+        if (!canManageCampaign(campaign, req.authUser)) {
+            res.status(403).json({ message: "Anda tidak memiliki akses untuk update campaign ini." });
+            return;
+        }
+
+        const title = normalizeText(req.body.title);
+        const body = normalizeText(req.body.body);
+        const progressPercent = Number(req.body.progressPercent);
+
+        if (!title || !body) {
+            res.status(400).json({ message: "Judul dan isi update wajib diisi." });
+            return;
+        }
+
+        const update = {
+            id: makeId("upd"),
+            title,
+            body,
+            progressPercent: Number.isFinite(progressPercent)
+                ? Math.max(0, Math.min(100, Math.round(progressPercent)))
+                : null,
+            userId: req.authUser.id,
+            authorName: req.authUser.name || "Penggalang Dana",
+            createdAt: new Date().toISOString()
+        };
+
+        const updates = Array.isArray(campaign.updates) ? campaign.updates : [];
+        campaigns[index] = {
+            ...campaign,
+            updates: [update, ...updates],
+            updatedAt: new Date().toISOString()
+        };
+
+        await writeData("campaigns", campaigns);
+
+        io.emit("campaign:update", {
+            campaignId: campaign.id,
+            update,
+            campaign: campaigns[index]
+        });
+
+        res.status(201).json({ update, campaign: campaigns[index] });
     });
 
     router.put("/campaigns/:id", requireAuth, async (req, res) => {
@@ -483,7 +608,7 @@ const createApiRouter = ({
     });
 
     router.post("/donations", requireAuth, async (req, res) => {
-        const { campaignId, amount, donorName, method } = req.body;
+        const { campaignId, amount, donorName, method, message } = req.body;
         const normalizedAmount = normalizeAmount(amount);
 
         if (!campaignId || normalizedAmount < 10000) {
@@ -531,6 +656,7 @@ const createApiRouter = ({
             qrImage: payment.qr_image || payment.payment_url || null,
             orderId,
             donorName: donorName || req.authUser?.name || "Hamba Allah",
+            message: normalizeText(message).slice(0, 240),
             userId: req.authUser?.id || null,
             demoMode,
             createdAt: new Date().toISOString()
@@ -629,6 +755,7 @@ const createApiRouter = ({
                 userId: transaction.userId,
                 amount: transaction.amount,
                 method: transaction.method,
+                message: transaction.message || "",
                 createdAt: new Date().toISOString()
             };
             donations.push(donationPayload);

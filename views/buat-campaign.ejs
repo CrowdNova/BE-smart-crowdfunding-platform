@@ -67,18 +67,17 @@
 
                         <div>
                             <label class="block text-sm font-semibold text-slate-700 mb-2">Foto / Banner Campaign</label>
-                            <div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-slate-300 border-dashed rounded-xl hover:bg-slate-50 transition-colors cursor-pointer">
-                                <div class="space-y-1 text-center">
+                            <label for="campaignImageFile" class="mt-1 flex flex-col sm:flex-row items-center gap-4 px-6 py-5 border-2 border-slate-300 border-dashed rounded-xl hover:bg-slate-50 transition-colors cursor-pointer">
+                                <img id="campaignImagePreview" src="" alt="Preview gambar campaign" class="hidden w-full sm:w-40 h-28 rounded-xl object-cover border border-slate-200 bg-slate-100">
+                                <div class="space-y-1 text-center sm:text-left flex-1">
                                     <i class="ph ph-image text-4xl text-slate-400"></i>
-                                    <div class="flex text-sm text-slate-600 justify-center">
-                                        <label class="relative cursor-pointer bg-white rounded-md font-medium text-primary-600 hover:text-primary-500">
-                                            <span>Upload a file</span>
-                                            <input type="file" name="imageFile" class="sr-only">
-                                        </label>
+                                    <div class="text-sm text-slate-600">
+                                        <span class="font-semibold text-primary-600 hover:text-primary-500">Upload gambar campaign</span>
                                     </div>
-                                    <p class="text-xs text-slate-500">PNG, JPG up to 5MB</p>
+                                    <p id="campaignImageFileName" class="text-xs text-slate-500">PNG atau JPG maksimal 5MB</p>
                                 </div>
-                            </div>
+                                <input id="campaignImageFile" type="file" name="imageFile" accept="image/*" class="sr-only">
+                            </label>
                             <input type="url" name="imageUrl" class="mt-3 w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-primary-500 outline-none text-sm" placeholder="Link gambar (opsional)">
                         </div>
 

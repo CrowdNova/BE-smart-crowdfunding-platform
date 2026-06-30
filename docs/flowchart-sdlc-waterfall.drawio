@@ -1,0 +1,73 @@
+<mxfile host="app.diagrams.net" modified="2026-06-02T00:00:00.000Z" agent="zed-codex" version="24.7.17" type="device">
+  <diagram id="waterfall-flow" name="Flowchart SDLC Waterfall">
+    <mxGraphModel dx="1536" dy="794" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="start" value="Mulai" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="300" y="40" width="140" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="analysis" value="1. Analisis Kebutuhan" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="250" y="140" width="240" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="design" value="2. Desain Sistem" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="250" y="250" width="240" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="implementation" value="3. Implementasi / Coding" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="250" y="360" width="240" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="testing" value="4. Pengujian / Testing" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+          <mxGeometry x="250" y="470" width="240" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="deployment" value="5. Deployment / Penerapan" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="250" y="580" width="240" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="maintenance" value="6. Maintenance / Pemeliharaan" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="250" y="690" width="240" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="end" value="Selesai" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="300" y="800" width="140" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e1" style="endArrow=block;endFill=1;html=1;rounded=0;" edge="1" parent="1" source="start" target="analysis">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" style="endArrow=block;endFill=1;html=1;rounded=0;" edge="1" parent="1" source="analysis" target="design">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" style="endArrow=block;endFill=1;html=1;rounded=0;" edge="1" parent="1" source="design" target="implementation">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" style="endArrow=block;endFill=1;html=1;rounded=0;" edge="1" parent="1" source="implementation" target="testing">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" style="endArrow=block;endFill=1;html=1;rounded=0;" edge="1" parent="1" source="testing" target="deployment">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e6" style="endArrow=block;endFill=1;html=1;rounded=0;" edge="1" parent="1" source="deployment" target="maintenance">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e7" style="endArrow=block;endFill=1;html=1;rounded=0;" edge="1" parent="1" source="maintenance" target="end">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="feedback" value="Feedback perbaikan" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;dashed=1;strokeColor=#b85450;endArrow=open;endFill=0;" edge="1" parent="1" source="maintenance" target="analysis">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="560" y="725" />
+              <mxPoint x="560" y="175" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
