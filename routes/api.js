@@ -607,6 +607,152 @@ const createApiRouter = ({
         res.json({ donations: mapped });
     });
 
+    router.get("/support/chat", requireAuth, async (req, res) => {
+        const chats = await readData("supportChats");
+        const userChats = chats
+            .filter((chat) => chat.userId === req.authUser.id)
+            .sort((a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt));
+
+        res.json({
+            chats: userChats,
+            chat: userChats[0] || null
+        });
+    });
+
+    router.post("/support/chat", requireAuth, async (req, res) => {
+        const message = normalizeText(req.body.message);
+        const subject = normalizeText(req.body.subject) || "Pertanyaan customer service";
+        const requestedThreadId = normalizeText(req.body.threadId);
+
+        if (!message) {
+            res.status(400).json({ message: "Pesan tidak boleh kosong." });
+            return;
+        }
+
+        const chats = await readData("supportChats");
+        const now = new Date().toISOString();
+        let index = requestedThreadId
+            ? chats.findIndex((chat) => chat.id === requestedThreadId && chat.userId === req.authUser.id)
+            : -1;
+
+        if (index === -1) {
+            index = chats.findIndex((chat) => chat.userId === req.authUser.id && chat.status !== "closed");
+        }
+
+        const supportMessage = {
+            id: makeId("msg"),
+            senderId: req.authUser.id,
+            senderName: req.authUser.name || "User",
+            senderRole: "user",
+            message,
+            createdAt: now
+        };
+
+        if (index === -1) {
+            const chat = {
+                id: makeId("chat"),
+                userId: req.authUser.id,
+                userName: req.authUser.name || "User",
+                userEmail: req.authUser.email || "",
+                subject: subject.slice(0, 120),
+                status: "open",
+                createdAt: now,
+                updatedAt: now,
+                messages: [supportMessage]
+            };
+
+            chats.push(chat);
+            await writeData("supportChats", chats);
+            io.emit("support:update", { chat });
+            res.status(201).json({ chat });
+            return;
+        }
+
+        chats[index] = {
+            ...chats[index],
+            status: "open",
+            updatedAt: now,
+            messages: [...(chats[index].messages || []), supportMessage]
+        };
+
+        await writeData("supportChats", chats);
+        io.emit("support:update", { chat: chats[index] });
+        res.json({ chat: chats[index] });
+    });
+
+    router.get("/admin/support-chats", requireAuth, requireAdmin, async (req, res) => {
+        const chats = await readData("supportChats");
+        const mapped = chats
+            .map((chat) => ({
+                ...chat,
+                messages: Array.isArray(chat.messages) ? chat.messages : []
+            }))
+            .sort((a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt));
+
+        res.json({ chats: mapped });
+    });
+
+    router.post("/admin/support-chats/:id/reply", requireAuth, requireAdmin, async (req, res) => {
+        const message = normalizeText(req.body.message);
+        if (!message) {
+            res.status(400).json({ message: "Balasan tidak boleh kosong." });
+            return;
+        }
+
+        const chats = await readData("supportChats");
+        const index = chats.findIndex((chat) => chat.id === req.params.id);
+        if (index === -1) {
+            res.status(404).json({ message: "Chat tidak ditemukan." });
+            return;
+        }
+
+        const now = new Date().toISOString();
+        const supportMessage = {
+            id: makeId("msg"),
+            senderId: req.authUser.id,
+            senderName: req.authUser.name || "Admin",
+            senderRole: "admin",
+            message,
+            createdAt: now
+        };
+
+        chats[index] = {
+            ...chats[index],
+            status: "open",
+            updatedAt: now,
+            messages: [...(chats[index].messages || []), supportMessage]
+        };
+
+        await writeData("supportChats", chats);
+        io.emit("support:update", { chat: chats[index] });
+        res.json({ chat: chats[index] });
+    });
+
+    router.patch("/admin/support-chats/:id", requireAuth, requireAdmin, async (req, res) => {
+        const status = normalizeText(req.body.status);
+        if (!["open", "closed"].includes(status)) {
+            res.status(400).json({ message: "Status chat tidak valid." });
+            return;
+        }
+
+        const chats = await readData("supportChats");
+        const index = chats.findIndex((chat) => chat.id === req.params.id);
+        if (index === -1) {
+            res.status(404).json({ message: "Chat tidak ditemukan." });
+            return;
+        }
+
+        chats[index] = {
+            ...chats[index],
+            status,
+            updatedAt: new Date().toISOString()
+        };
+
+        await writeData("supportChats", chats);
+        io.emit("support:update", { chat: chats[index] });
+        res.json({ chat: chats[index] });
+    });
+
     router.post("/donations", requireAuth, async (req, res) => {
         const { campaignId, amount, donorName, method, message } = req.body;
         const normalizedAmount = normalizeAmount(amount);

@@ -85,15 +85,33 @@
                     </div>
                 </div>
 
-                <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-                    <div class="flex items-center justify-between mb-4">
-                        <h2 class="text-lg font-bold text-slate-900">Riwayat Donasi</h2>
-                        <span class="text-xs text-slate-400">Terbaru</span>
+                <div class="grid grid-cols-1 xl:grid-cols-[1.1fr_0.9fr] gap-6">
+                    <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+                        <div class="flex items-center justify-between mb-4">
+                            <h2 class="text-lg font-bold text-slate-900">Riwayat Donasi</h2>
+                            <span class="text-xs text-slate-400">Terbaru</span>
+                        </div>
+                        <div class="space-y-4" id="adminDonationList">
+                            <div class="text-center py-8 bg-slate-50 rounded-2xl border border-slate-100">
+                                <div class="animate-spin rounded-full h-8 w-8 border-4 border-primary-500 border-t-transparent mx-auto mb-3"></div>
+                                <p class="text-slate-500 font-medium">Memuat data donasi...</p>
+                            </div>
+                        </div>
                     </div>
-                    <div class="space-y-4" id="adminDonationList">
-                        <div class="text-center py-8 bg-slate-50 rounded-2xl border border-slate-100">
-                            <div class="animate-spin rounded-full h-8 w-8 border-4 border-primary-500 border-t-transparent mx-auto mb-3"></div>
-                            <p class="text-slate-500 font-medium">Memuat data donasi...</p>
+
+                    <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+                        <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
+                            <div>
+                                <h2 class="text-lg font-bold text-slate-900">Chat Customer Service</h2>
+                                <p class="text-sm text-slate-500">Pantau pertanyaan user dan balas dari dashboard admin.</p>
+                            </div>
+                            <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700" id="adminSupportBadge">0 Open</span>
+                        </div>
+                        <div class="space-y-4" id="adminSupportChatList">
+                            <div class="text-center py-8 bg-slate-50 rounded-2xl border border-slate-100">
+                                <div class="animate-spin rounded-full h-8 w-8 border-4 border-primary-500 border-t-transparent mx-auto mb-3"></div>
+                                <p class="text-slate-500 font-medium">Memuat chat customer service...</p>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -101,6 +119,7 @@
         </div>
     </div>
 
+    <script src="/socket.io/socket.io.js"></script>
     <script src="/js/app.js" defer></script>
 </body>
 </html>

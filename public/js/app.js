@@ -24,7 +24,11 @@ const state = {
         category: ""
     },
     currentCampaignId: null,
-    currentCampaignCurrentAmount: 0
+    currentCampaignCurrentAmount: 0,
+    supportChat: {
+        currentChat: null,
+        socketReady: false
+    }
 };
 
 const getCurrentUser = () => {
@@ -587,6 +591,140 @@ const initAdminDashboard = async () => {
                 </div>
             `;
         }
+    }
+
+    loadAdminSupportChats();
+};
+
+const getSupportStatusClass = (status) => {
+    return status === "closed"
+        ? "bg-slate-100 text-slate-600"
+        : "bg-emerald-100 text-emerald-700";
+};
+
+const renderSupportMessages = (messages = [], compact = false) => {
+    if (!messages.length) {
+        return `<p class="text-sm text-slate-500">Belum ada pesan.</p>`;
+    }
+
+    const visibleMessages = compact ? messages.slice(-4) : messages;
+    return visibleMessages.map((item) => {
+        const isAdmin = item.senderRole === "admin";
+        return `
+            <div class="flex ${isAdmin ? "justify-end" : "justify-start"}">
+                <div class="max-w-[86%] rounded-2xl px-3 py-2 ${isAdmin ? "bg-emerald-600 text-white" : "bg-white border border-slate-200 text-slate-700"}">
+                    <div class="flex items-center justify-between gap-3 mb-1">
+                        <span class="text-[11px] font-semibold ${isAdmin ? "text-emerald-50" : "text-slate-500"}">${escapeHtml(item.senderName || (isAdmin ? "Admin" : "User"))}</span>
+                        <span class="text-[10px] ${isAdmin ? "text-emerald-100" : "text-slate-400"}">${formatDateTime(item.createdAt)}</span>
+                    </div>
+                    <p class="text-sm leading-relaxed">${escapeHtml(item.message || "")}</p>
+                </div>
+            </div>
+        `;
+    }).join("");
+};
+
+const renderAdminSupportChats = (chats = []) => {
+    const list = document.getElementById("adminSupportChatList");
+    const badge = document.getElementById("adminSupportBadge");
+    if (!list) return;
+
+    const openCount = chats.filter((chat) => chat.status !== "closed").length;
+    if (badge) {
+        badge.textContent = `${openCount} Open`;
+        badge.className = `text-xs font-semibold px-2.5 py-1 rounded-full ${openCount ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"}`;
+    }
+
+    if (!chats.length) {
+        list.innerHTML = `
+            <div class="text-center py-8 bg-slate-50 rounded-2xl border border-slate-100">
+                <i class="ph ph-chats-circle text-3xl text-slate-300"></i>
+                <p class="text-slate-500 font-medium mt-2">Belum ada chat customer service.</p>
+            </div>
+        `;
+        return;
+    }
+
+    list.innerHTML = chats.map((chat) => {
+        const status = chat.status || "open";
+        const messages = Array.isArray(chat.messages) ? chat.messages : [];
+        const isClosed = status === "closed";
+        return `
+            <div class="border border-slate-100 rounded-2xl bg-slate-50 p-4">
+                <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                    <div>
+                        <p class="text-sm font-bold text-slate-900">${escapeHtml(chat.subject || "Chat Customer Service")}</p>
+                        <p class="text-xs text-slate-500">${escapeHtml(chat.userName || "User")} &bull; ${escapeHtml(chat.userEmail || "-")}</p>
+                        <p class="text-xs text-slate-400">${formatDateTime(chat.updatedAt || chat.createdAt)}</p>
+                    </div>
+                    <span class="self-start text-xs font-semibold px-2.5 py-1 rounded-full ${getSupportStatusClass(status)}">${status.toUpperCase()}</span>
+                </div>
+
+                <div class="mt-4 space-y-3 max-h-72 overflow-y-auto pr-1">
+                    ${renderSupportMessages(messages, true)}
+                </div>
+
+                <div class="mt-4 flex flex-col gap-2">
+                    <textarea id="adminSupportReply-${chat.id}" class="w-full min-h-20 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="Tulis balasan untuk user..." ${isClosed ? "disabled" : ""}></textarea>
+                    <div class="flex flex-wrap gap-2 justify-end">
+                        <button class="px-3 py-2 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-white transition-colors" onclick="adminUpdateSupportStatus('${chat.id}', '${isClosed ? "open" : "closed"}')">${isClosed ? "Buka Lagi" : "Tutup Chat"}</button>
+                        <button class="px-3 py-2 rounded-lg bg-emerald-600 text-xs font-semibold text-white hover:bg-emerald-700 transition-colors disabled:opacity-50" onclick="adminReplySupportChat('${chat.id}')" ${isClosed ? "disabled" : ""}>
+                            <i class="ph ph-paper-plane-tilt align-middle"></i>
+                            Balas
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join("");
+};
+
+const loadAdminSupportChats = async () => {
+    const list = document.getElementById("adminSupportChatList");
+    if (!list) return;
+
+    try {
+        const payload = await fetchJson("/api/admin/support-chats");
+        renderAdminSupportChats(Array.isArray(payload.chats) ? payload.chats : []);
+    } catch (error) {
+        list.innerHTML = `
+            <div class="text-center py-8 bg-slate-50 rounded-2xl border border-slate-100">
+                <p class="text-slate-500 font-medium">Gagal memuat chat customer service.</p>
+            </div>
+        `;
+    }
+};
+
+window.adminReplySupportChat = async (id) => {
+    const textarea = document.getElementById(`adminSupportReply-${id}`);
+    const message = textarea?.value.trim();
+    if (!message) {
+        showAlert("Pesan Kosong", "Tulis balasan terlebih dahulu.", "warning");
+        return;
+    }
+
+    try {
+        await fetchJson(`/api/admin/support-chats/${id}/reply`, {
+            method: "POST",
+            body: JSON.stringify({ message })
+        });
+        if (textarea) textarea.value = "";
+        showAlert("Berhasil", "Balasan customer service terkirim.", "success");
+        loadAdminSupportChats();
+    } catch (error) {
+        showAlert("Gagal", error.message || "Gagal mengirim balasan.", "error");
+    }
+};
+
+window.adminUpdateSupportStatus = async (id, status) => {
+    try {
+        await fetchJson(`/api/admin/support-chats/${id}`, {
+            method: "PATCH",
+            body: JSON.stringify({ status })
+        });
+        loadAdminSupportChats();
+    } catch (error) {
+        showAlert("Gagal", error.message || "Gagal memperbarui status chat.", "error");
     }
 };
 
@@ -1444,11 +1582,157 @@ const initCampaignDetail = async () => {
     }
 };
 
+const shouldShowSupportChatWidget = () => {
+    const user = getCurrentUser();
+    if (!user || !user.id || user.role === "admin") return false;
+
+    const path = window.location.pathname.replace(/\/$/, "") || "/";
+    return !["/login", "/register", "/admin"].includes(path);
+};
+
+const renderUserSupportChat = (chat) => {
+    const messagesEl = document.getElementById("supportChatMessages");
+    const subjectInput = document.getElementById("supportChatSubject");
+    const statusEl = document.getElementById("supportChatStatus");
+    if (!messagesEl) return;
+
+    state.supportChat.currentChat = chat || null;
+
+    if (subjectInput && chat?.subject) {
+        subjectInput.value = chat.subject;
+    }
+
+    if (statusEl) {
+        const status = chat?.status || "open";
+        statusEl.textContent = chat ? status.toUpperCase() : "BARU";
+        statusEl.className = `text-[11px] font-semibold px-2 py-1 rounded-full ${getSupportStatusClass(status)}`;
+    }
+
+    const messages = Array.isArray(chat?.messages) ? chat.messages : [];
+    if (!messages.length) {
+        messagesEl.innerHTML = `
+            <div class="text-center py-8">
+                <i class="ph ph-headset text-3xl text-slate-300"></i>
+                <p class="text-sm font-medium text-slate-600 mt-2">Ada yang bisa kami bantu?</p>
+                <p class="text-xs text-slate-400">Kirim pertanyaan dan admin akan membalas di sini.</p>
+            </div>
+        `;
+        return;
+    }
+
+    messagesEl.innerHTML = `<div class="space-y-3">${renderSupportMessages(messages)}</div>`;
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+};
+
+const loadUserSupportChat = async () => {
+    const messagesEl = document.getElementById("supportChatMessages");
+    if (!messagesEl) return;
+
+    try {
+        const payload = await fetchJson("/api/support/chat");
+        renderUserSupportChat(payload.chat || null);
+    } catch (error) {
+        messagesEl.innerHTML = `
+            <div class="text-center py-8">
+                <p class="text-sm text-slate-500">Gagal memuat chat.</p>
+            </div>
+        `;
+    }
+};
+
+const toggleSupportChatPanel = (forceOpen) => {
+    const panel = document.getElementById("supportChatPanel");
+    if (!panel) return;
+
+    const shouldOpen = typeof forceOpen === "boolean"
+        ? forceOpen
+        : panel.classList.contains("hidden");
+
+    panel.classList.toggle("hidden", !shouldOpen);
+    if (shouldOpen) {
+        loadUserSupportChat();
+        document.getElementById("supportChatMessage")?.focus();
+    }
+};
+
+const initSupportChatWidget = () => {
+    if (!shouldShowSupportChatWidget() || document.getElementById("supportChatWidget")) return;
+
+    document.body.insertAdjacentHTML("beforeend", `
+        <div id="supportChatWidget" class="fixed bottom-5 right-5 z-50 flex flex-col items-end gap-3">
+            <div id="supportChatPanel" class="hidden w-[calc(100vw-2.5rem)] max-w-sm overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+                <div class="bg-slate-900 px-4 py-3 text-white">
+                    <div class="flex items-center justify-between gap-3">
+                        <div>
+                            <p class="text-sm font-bold">Customer Service</p>
+                            <p class="text-xs text-slate-300">Tim admin siap membantu</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span id="supportChatStatus" class="text-[11px] font-semibold px-2 py-1 rounded-full bg-emerald-100 text-emerald-700">BARU</span>
+                            <button type="button" id="supportChatClose" class="grid h-8 w-8 place-items-center rounded-full hover:bg-white/10" aria-label="Tutup chat">
+                                <i class="ph ph-x"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div id="supportChatMessages" class="h-72 overflow-y-auto bg-slate-50 px-4 py-4"></div>
+                <form id="supportChatForm" class="space-y-3 border-t border-slate-100 p-4">
+                    <input id="supportChatSubject" class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="Topik bantuan" maxlength="120">
+                    <textarea id="supportChatMessage" class="w-full min-h-20 rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="Tulis pesan..." required></textarea>
+                    <button type="submit" class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 transition-colors">
+                        <i class="ph ph-paper-plane-tilt"></i>
+                        Kirim Pesan
+                    </button>
+                </form>
+            </div>
+            <button type="button" id="supportChatToggle" class="inline-flex h-14 w-14 items-center justify-center rounded-full bg-slate-900 text-white shadow-xl hover:bg-emerald-600 transition-colors" aria-label="Buka customer service">
+                <i class="ph ph-chat-circle-dots text-2xl"></i>
+            </button>
+        </div>
+    `);
+
+    document.getElementById("supportChatToggle")?.addEventListener("click", () => toggleSupportChatPanel());
+    document.getElementById("supportChatClose")?.addEventListener("click", () => toggleSupportChatPanel(false));
+    document.getElementById("supportChatForm")?.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const subjectInput = document.getElementById("supportChatSubject");
+        const messageInput = document.getElementById("supportChatMessage");
+        const submitButton = event.currentTarget.querySelector("button[type='submit']");
+        const message = messageInput?.value.trim();
+
+        if (!message) return;
+
+        if (submitButton) {
+            submitButton.disabled = true;
+            submitButton.classList.add("opacity-70");
+        }
+
+        try {
+            const payload = await fetchJson("/api/support/chat", {
+                method: "POST",
+                body: JSON.stringify({
+                    threadId: state.supportChat.currentChat?.id,
+                    subject: subjectInput?.value.trim(),
+                    message
+                })
+            });
+
+            if (messageInput) messageInput.value = "";
+            renderUserSupportChat(payload.chat);
+        } catch (error) {
+            showAlert("Gagal", error.message || "Gagal mengirim chat.", "error");
+        } finally {
+            if (submitButton) {
+                submitButton.disabled = false;
+                submitButton.classList.remove("opacity-70");
+            }
+        }
+    });
+};
+
 const initRealtime = () => {
     if (!window.io) return;
     const list = document.getElementById("recent-transactions-list");
-    if (!list) return;
-
     if (!isAuthenticated()) return;
 
     const socket = window.io();
@@ -1479,6 +1763,22 @@ const initRealtime = () => {
             }
         }
     });
+
+    socket.on("support:update", (payload) => {
+        const user = getCurrentUser();
+        if (!user) return;
+
+        if (user.role === "admin" && document.getElementById("adminSupportChatList")) {
+            loadAdminSupportChats();
+            return;
+        }
+
+        const panel = document.getElementById("supportChatPanel");
+        const isPanelOpen = panel && !panel.classList.contains("hidden");
+        if (isPanelOpen && payload.chat?.userId === user.id) {
+            renderUserSupportChat(payload.chat);
+        }
+    });
 };
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -1497,5 +1797,6 @@ document.addEventListener("DOMContentLoaded", () => {
     initNotificationPanel();
     initAdminDashboard();
     initCampaignDetail();
+    initSupportChatWidget();
     initRealtime();
 });
