@@ -47,4 +47,4 @@ Thumbs.db
 
 # Frontend Folder
 frontend/node_modules/
-frontend
+./frontend
