@@ -1,0 +1,54 @@
+[
+  {
+    "id": "chat_1783018386708_ywcxxn",
+    "userId": "user_1779177484589_b9d2wc",
+    "userName": "Kom Infokan",
+    "userEmail": "infokankom@gmail.com",
+    "subject": "phase 1: support chat",
+    "status": "closed",
+    "createdAt": "2026-07-02T18:53:06.705Z",
+    "updatedAt": "2026-07-02T18:54:47.351Z",
+    "messages": [
+      {
+        "id": "msg_1783018386708_z28hqh",
+        "senderId": "user_1779177484589_b9d2wc",
+        "senderName": "Kom Infokan",
+        "senderRole": "user",
+        "message": "lorem ipsum 1",
+        "createdAt": "2026-07-02T18:53:06.705Z"
+      },
+      {
+        "id": "msg_1783018422233_j3828n",
+        "senderId": "user_1779164689468_w5phql",
+        "senderName": "Kiro Fyzu",
+        "senderRole": "admin",
+        "message": "Halo kiro disini, pesan suidah di terima",
+        "createdAt": "2026-07-02T18:53:42.233Z"
+      },
+      {
+        "id": "msg_1783018458660_munn2n",
+        "senderId": "user_1779177484589_b9d2wc",
+        "senderName": "Kom Infokan",
+        "senderRole": "user",
+        "message": "oke masuk kak",
+        "createdAt": "2026-07-02T18:54:18.659Z"
+      },
+      {
+        "id": "msg_1783018469287_gar1xt",
+        "senderId": "user_1779164689468_w5phql",
+        "senderName": "Kiro Fyzu",
+        "senderRole": "admin",
+        "message": "sip",
+        "createdAt": "2026-07-02T18:54:29.287Z"
+      },
+      {
+        "id": "msg_1783018483832_8nas0p",
+        "senderId": "user_1779164689468_w5phql",
+        "senderName": "Kiro Fyzu",
+        "senderRole": "admin",
+        "message": "kami tutup yah",
+        "createdAt": "2026-07-02T18:54:43.832Z"
+      }
+    ]
+  }
+]

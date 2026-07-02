@@ -11,7 +11,7 @@
     "id": "user_1779164689468_w5phql",
     "name": "Kiro Fyzu",
     "email": "kirofyzu@gmail.com",
-    "password": "fyas256",
+    "password": "fyas25",
     "role": "admin",
     "provider": "google",
     "providerId": "105461277758639660331",
@@ -24,7 +24,7 @@
     "name": "Kom Infokan",
     "email": "infokankom@gmail.com",
     "password": "",
-    "role": "admin",
+    "role": "user",
     "provider": "google",
     "providerId": "102481075180114236097",
     "createdAt": "2026-05-19T07:58:04.589Z"

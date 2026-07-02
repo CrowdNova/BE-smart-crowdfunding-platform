@@ -57,7 +57,8 @@ const FILES = {
     users: "users.json",
     campaigns: "campaigns.json",
     donations: "donations.json",
-    transactions: "transactions.json"
+    transactions: "transactions.json",
+    supportChats: "supportChats.json"
 };
 
 const DEFAULT_CHART_DATA = {
@@ -133,7 +134,8 @@ const seedData = {
             createdAt: new Date().toISOString()
         }
     ],
-    transactions: []
+    transactions: [],
+    supportChats: []
 };
 
 const ensureDataFiles = async () => {
