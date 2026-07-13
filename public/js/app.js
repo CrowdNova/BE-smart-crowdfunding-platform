@@ -27,6 +27,7 @@ const state = {
     currentCampaignCurrentAmount: 0,
     supportChat: {
         currentChat: null,
+        socket: null,
         socketReady: false
     }
 };
@@ -602,14 +603,23 @@ const getSupportStatusClass = (status) => {
         : "bg-emerald-100 text-emerald-700";
 };
 
+const renderReadStatus = (item) => {
+    if (item.readAt) {
+        return `<span class="text-[10px] text-emerald-400 flex items-center gap-0.5"><svg class="w-3.5 h-3.5" viewBox="0 -1 16 16" fill="currentColor"><path d="M15.3 3.3a1 1 0 0 1 0 1.4l-7 7a1 1 0 0 1-1.4 0l-3-3a1 1 0 0 1 1.4-1.4L7.6 9.9l6.3-6.3a1 1 0 0 1 1.4 0z"/><path d="M11.3 3.3a1 1 0 0 1 0 1.4l-4.7 4.7-1.3-1.3a1 1 0 0 1 1.4-1.4l.6.6 4-4a1 1 0 0 1 1.4 0z"/></svg>Dibaca</span>`;
+    }
+    return `<span class="text-[10px] text-slate-400"><svg class="w-3.5 h-3.5 inline" viewBox="0 -1 16 16" fill="currentColor"><path d="M15.3 3.3a1 1 0 0 1 0 1.4l-7 7a1 1 0 0 1-1.4 0l-3-3a1 1 0 0 1 1.4-1.4L7.6 9.9l6.3-6.3a1 1 0 0 1 1.4 0z"/></svg></span>`;
+};
+
 const renderSupportMessages = (messages = [], compact = false) => {
     if (!messages.length) {
         return `<p class="text-sm text-slate-500">Belum ada pesan.</p>`;
     }
 
     const visibleMessages = compact ? messages.slice(-4) : messages;
+    const user = getCurrentUser();
     return visibleMessages.map((item) => {
         const isAdmin = item.senderRole === "admin";
+        const isOwn = user && item.senderId === user.id;
         return `
             <div class="flex ${isAdmin ? "justify-end" : "justify-start"}">
                 <div class="max-w-[86%] rounded-2xl px-3 py-2 ${isAdmin ? "bg-emerald-600 text-white" : "bg-white border border-slate-200 text-slate-700"}">
@@ -618,6 +628,7 @@ const renderSupportMessages = (messages = [], compact = false) => {
                         <span class="text-[10px] ${isAdmin ? "text-emerald-100" : "text-slate-400"}">${formatDateTime(item.createdAt)}</span>
                     </div>
                     <p class="text-sm leading-relaxed">${escapeHtml(item.message || "")}</p>
+                    ${!compact && isOwn ? `<div class="flex justify-end mt-0.5">${renderReadStatus(item)}</div>` : ""}
                 </div>
             </div>
         `;
@@ -662,6 +673,12 @@ const renderAdminSupportChats = (chats = []) => {
 
                 <div class="mt-4 space-y-3 max-h-72 overflow-y-auto pr-1">
                     ${renderSupportMessages(messages, true)}
+                    <div id="adminTyping-${chat.id}" class="hidden text-[11px] text-slate-400 italic flex items-center gap-1 py-1">
+                        <span class="inline-block w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" style="animation-delay:0ms"></span>
+                        <span class="inline-block w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" style="animation-delay:150ms"></span>
+                        <span class="inline-block w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" style="animation-delay:300ms"></span>
+                        Sedang mengetik...
+                    </div>
                 </div>
 
                 <div class="mt-4 flex flex-col gap-2">
@@ -679,13 +696,55 @@ const renderAdminSupportChats = (chats = []) => {
     }).join("");
 };
 
+const adminTypingTimeouts = {};
+
+const createAdminTypingHandler = (chatId) => {
+    return () => {
+        if (!state.supportChat.socket) {
+            try { state.supportChat.socket = window.io(); } catch (e) {}
+        }
+        if (state.supportChat.socket) {
+            state.supportChat.socket.emit("support:typing", {
+                chatId,
+                userId: getCurrentUser()?.id,
+                userRole: "admin",
+                isTyping: true
+            });
+        }
+
+        clearTimeout(adminTypingTimeouts[chatId]);
+        adminTypingTimeouts[chatId] = setTimeout(() => {
+            if (state.supportChat.socket) {
+                state.supportChat.socket.emit("support:typing", {
+                    chatId,
+                    userId: getCurrentUser()?.id,
+                    userRole: "admin",
+                    isTyping: false
+                });
+            }
+        }, 1500);
+    };
+};
+
+const setupAdminTypingListeners = (chats) => {
+    chats.forEach((chat) => {
+        const textarea = document.getElementById(`adminSupportReply-${chat.id}`);
+        if (!textarea) return;
+        textarea.removeEventListener("input", textarea._typingHandler);
+        textarea._typingHandler = createAdminTypingHandler(chat.id);
+        textarea.addEventListener("input", textarea._typingHandler);
+    });
+};
+
 const loadAdminSupportChats = async () => {
     const list = document.getElementById("adminSupportChatList");
     if (!list) return;
 
     try {
         const payload = await fetchJson("/api/admin/support-chats");
-        renderAdminSupportChats(Array.isArray(payload.chats) ? payload.chats : []);
+        const chats = Array.isArray(payload.chats) ? payload.chats : [];
+        renderAdminSupportChats(chats);
+        setupAdminTypingListeners(chats);
     } catch (error) {
         list.innerHTML = `
             <div class="text-center py-8 bg-slate-50 rounded-2xl border border-slate-100">
@@ -703,6 +762,15 @@ window.adminReplySupportChat = async (id) => {
         return;
     }
 
+    if (state.supportChat.socket) {
+        state.supportChat.socket.emit("support:typing", {
+            chatId: id,
+            userId: getCurrentUser()?.id,
+            userRole: "admin",
+            isTyping: false
+        });
+    }
+
     try {
         await fetchJson(`/api/admin/support-chats/${id}/reply`, {
             method: "POST",
@@ -717,6 +785,15 @@ window.adminReplySupportChat = async (id) => {
 };
 
 window.adminUpdateSupportStatus = async (id, status) => {
+    if (state.supportChat.socket) {
+        state.supportChat.socket.emit("support:typing", {
+            chatId: id,
+            userId: getCurrentUser()?.id,
+            userRole: "admin",
+            isTyping: false
+        });
+    }
+
     try {
         await fetchJson(`/api/admin/support-chats/${id}`, {
             method: "PATCH",
@@ -1622,6 +1699,33 @@ const renderUserSupportChat = (chat) => {
 
     messagesEl.innerHTML = `<div class="space-y-3">${renderSupportMessages(messages)}</div>`;
     messagesEl.scrollTop = messagesEl.scrollHeight;
+
+    markChatAsRead(chat);
+};
+
+const markChatAsRead = async (chat) => {
+    if (!chat?.id) return;
+    const user = getCurrentUser();
+    if (!user) return;
+
+    const hasUnread = (chat.messages || []).some((msg) => {
+        return msg.senderRole !== (user.role === "admin" ? "user" : "admin") && !msg.readAt;
+    });
+
+    if (!hasUnread) return;
+
+    try {
+        const payload = await fetchJson(`/api/support/chat/${chat.id}/read`, { method: "PATCH" });
+        if (payload.chat) {
+            state.supportChat.currentChat = payload.chat;
+            const messagesEl = document.getElementById("supportChatMessages");
+            if (messagesEl) {
+                messagesEl.innerHTML = `<div class="space-y-3">${renderSupportMessages(payload.chat.messages || [])}</div>`;
+            }
+        }
+    } catch (error) {
+        // silently fail
+    }
 };
 
 const loadUserSupportChat = async () => {
@@ -1652,6 +1756,9 @@ const toggleSupportChatPanel = (forceOpen) => {
     if (shouldOpen) {
         loadUserSupportChat();
         document.getElementById("supportChatMessage")?.focus();
+    } else {
+        const typingEl = document.getElementById("supportChatTyping");
+        if (typingEl) typingEl.classList.add("hidden");
     }
 };
 
@@ -1675,7 +1782,13 @@ const initSupportChatWidget = () => {
                         </div>
                     </div>
                 </div>
-                <div id="supportChatMessages" class="h-72 overflow-y-auto bg-slate-50 px-4 py-4"></div>
+                <div id="supportChatMessages" class="h-64 overflow-y-auto bg-slate-50 px-4 py-4"></div>
+                <div id="supportChatTyping" class="hidden bg-slate-50 px-4 pb-1 text-[11px] text-slate-400 italic flex items-center gap-1">
+                    <span class="inline-block w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" style="animation-delay:0ms"></span>
+                    <span class="inline-block w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" style="animation-delay:150ms"></span>
+                    <span class="inline-block w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" style="animation-delay:300ms"></span>
+                    Admin sedang mengetik...
+                </div>
                 <form id="supportChatForm" class="space-y-3 border-t border-slate-100 p-4">
                     <input id="supportChatSubject" class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="Topik bantuan" maxlength="120">
                     <textarea id="supportChatMessage" class="w-full min-h-20 rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="Tulis pesan..." required></textarea>
@@ -1691,6 +1804,40 @@ const initSupportChatWidget = () => {
         </div>
     `);
 
+    const messageInput = document.getElementById("supportChatMessage");
+    let typingTimeout = null;
+
+    if (messageInput) {
+        messageInput.addEventListener("input", () => {
+            const chatId = state.supportChat.currentChat?.id;
+            if (!chatId) return;
+
+            if (!state.supportChat.socket) {
+                try { state.supportChat.socket = window.io(); } catch (e) {}
+            }
+            if (state.supportChat.socket) {
+                state.supportChat.socket.emit("support:typing", {
+                    chatId,
+                    userId: getCurrentUser()?.id,
+                    userRole: "user",
+                    isTyping: true
+                });
+            }
+
+            clearTimeout(typingTimeout);
+            typingTimeout = setTimeout(() => {
+                if (state.supportChat.socket && state.supportChat.currentChat?.id) {
+                    state.supportChat.socket.emit("support:typing", {
+                        chatId: state.supportChat.currentChat.id,
+                        userId: getCurrentUser()?.id,
+                        userRole: "user",
+                        isTyping: false
+                    });
+                }
+            }, 1500);
+        });
+    }
+
     document.getElementById("supportChatToggle")?.addEventListener("click", () => toggleSupportChatPanel());
     document.getElementById("supportChatClose")?.addEventListener("click", () => toggleSupportChatPanel(false));
     document.getElementById("supportChatForm")?.addEventListener("submit", async (event) => {
@@ -1705,6 +1852,15 @@ const initSupportChatWidget = () => {
         if (submitButton) {
             submitButton.disabled = true;
             submitButton.classList.add("opacity-70");
+        }
+
+        if (state.supportChat.socket) {
+            state.supportChat.socket.emit("support:typing", {
+                chatId: state.supportChat.currentChat?.id,
+                userId: getCurrentUser()?.id,
+                userRole: "user",
+                isTyping: false
+            });
         }
 
         try {
@@ -1736,6 +1892,8 @@ const initRealtime = () => {
     if (!isAuthenticated()) return;
 
     const socket = window.io();
+    state.supportChat.socket = socket;
+    state.supportChat.socketReady = true;
     socket.on("donation:new", (payload) => {
         if (payload.stats) {
             updateStatsUI(payload.stats);
@@ -1777,6 +1935,26 @@ const initRealtime = () => {
         const isPanelOpen = panel && !panel.classList.contains("hidden");
         if (isPanelOpen && payload.chat?.userId === user.id) {
             renderUserSupportChat(payload.chat);
+        }
+    });
+
+    socket.on("support:typing", (data) => {
+        const user = getCurrentUser();
+        if (!user) return;
+
+        if (user.role === "admin") {
+            const chatId = data.chatId;
+            const typingEl = document.getElementById(`adminTyping-${chatId}`);
+            if (typingEl) {
+                typingEl.classList.toggle("hidden", !data.isTyping);
+            }
+        } else {
+            const chatId = data.chatId;
+            const currentChatId = state.supportChat.currentChat?.id;
+            const typingEl = document.getElementById("supportChatTyping");
+            if (typingEl && chatId === currentChatId) {
+                typingEl.classList.toggle("hidden", !data.isTyping);
+            }
         }
     });
 };

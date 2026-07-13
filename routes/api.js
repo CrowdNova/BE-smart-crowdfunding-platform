@@ -645,7 +645,8 @@ const createApiRouter = ({
             senderName: req.authUser.name || "User",
             senderRole: "user",
             message,
-            createdAt: now
+            createdAt: now,
+            readAt: null
         };
 
         if (index === -1) {
@@ -668,11 +669,18 @@ const createApiRouter = ({
             return;
         }
 
+        const updatedMessages = (chats[index].messages || []).map((msg) => {
+            if (msg.senderRole === "admin" && !msg.readAt) {
+                return { ...msg, readAt: now };
+            }
+            return msg;
+        });
+
         chats[index] = {
             ...chats[index],
             status: "open",
             updatedAt: now,
-            messages: [...(chats[index].messages || []), supportMessage]
+            messages: [...updatedMessages, supportMessage]
         };
 
         await writeData("supportChats", chats);
@@ -682,12 +690,26 @@ const createApiRouter = ({
 
     router.get("/admin/support-chats", requireAuth, requireAdmin, async (req, res) => {
         const chats = await readData("supportChats");
+        const now = new Date().toISOString();
+        let changed = false;
+
         const mapped = chats
-            .map((chat) => ({
-                ...chat,
-                messages: Array.isArray(chat.messages) ? chat.messages : []
-            }))
+            .map((chat) => {
+                const messages = Array.isArray(chat.messages) ? chat.messages : [];
+                const updatedMessages = messages.map((msg) => {
+                    if (msg.senderRole === "user" && !msg.readAt) {
+                        changed = true;
+                        return { ...msg, readAt: now };
+                    }
+                    return msg;
+                });
+                return { ...chat, messages: updatedMessages };
+            })
             .sort((a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt));
+
+        if (changed) {
+            await writeData("supportChats", mapped);
+        }
 
         res.json({ chats: mapped });
     });
@@ -713,18 +735,63 @@ const createApiRouter = ({
             senderName: req.authUser.name || "Admin",
             senderRole: "admin",
             message,
-            createdAt: now
+            createdAt: now,
+            readAt: null
         };
+
+        const updatedMessages = (chats[index].messages || []).map((msg) => {
+            if (msg.senderRole === "user" && !msg.readAt) {
+                return { ...msg, readAt: now };
+            }
+            return msg;
+        });
 
         chats[index] = {
             ...chats[index],
             status: "open",
             updatedAt: now,
-            messages: [...(chats[index].messages || []), supportMessage]
+            messages: [...updatedMessages, supportMessage]
         };
 
         await writeData("supportChats", chats);
         io.emit("support:update", { chat: chats[index] });
+        res.json({ chat: chats[index] });
+    });
+
+    router.patch("/support/chat/:id/read", requireAuth, async (req, res) => {
+        const chats = await readData("supportChats");
+        const index = chats.findIndex((chat) => chat.id === req.params.id);
+        if (index === -1) {
+            res.status(404).json({ message: "Chat tidak ditemukan." });
+            return;
+        }
+
+        if (chats[index].userId !== req.authUser.id && req.authUser.role !== "admin") {
+            res.status(403).json({ message: "Akses ditolak." });
+            return;
+        }
+
+        const now = new Date().toISOString();
+        let changed = false;
+
+        const updatedMessages = (chats[index].messages || []).map((msg) => {
+            if (msg.senderRole !== (req.authUser.role === "admin" ? "user" : "admin") && !msg.readAt) {
+                changed = true;
+                return { ...msg, readAt: now };
+            }
+            return msg;
+        });
+
+        if (changed) {
+            chats[index] = {
+                ...chats[index],
+                messages: updatedMessages,
+                updatedAt: now
+            };
+            await writeData("supportChats", chats);
+            io.emit("support:update", { chat: chats[index] });
+        }
+
         res.json({ chat: chats[index] });
     });
 
