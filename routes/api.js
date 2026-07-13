@@ -469,6 +469,7 @@ const createApiRouter = ({
         const users = await readData("users");
         const campaigns = await readData("campaigns");
         const donations = await readData("donations");
+        const chats = await readData("supportChats");
 
         const totalUsers = users.length;
         const activeUsers = users.filter((u) => u.status !== "disabled").length;
@@ -476,12 +477,37 @@ const createApiRouter = ({
         const pendingCampaigns = campaigns.filter((c) => c.status === "pending").length;
         const totalDonations = donations.reduce((sum, item) => sum + normalizeAmount(item.amount), 0);
 
+        const ratedChats = chats.filter((c) => c.rating);
+        const avgRating = ratedChats.length
+            ? (ratedChats.reduce((sum, c) => sum + c.rating, 0) / ratedChats.length).toFixed(1)
+            : null;
+
+        const queueLength = chats.filter((c) => {
+            if (c.status !== "open") return false;
+            return !(c.messages || []).some((m) => m.senderRole === "admin");
+        }).length;
+
+        const respondedChats = chats.filter((c) => c.firstResponseAt);
+        let avgResponseSeconds = null;
+        if (respondedChats.length) {
+            const totalSeconds = respondedChats.reduce((sum, c) => {
+                const created = new Date(c.createdAt).getTime();
+                const responded = new Date(c.firstResponseAt).getTime();
+                return sum + (responded - created);
+            }, 0);
+            avgResponseSeconds = Math.round(totalSeconds / respondedChats.length / 1000);
+        }
+
         res.json({
             totalUsers,
             activeUsers,
             totalCampaigns,
             pendingCampaigns,
-            totalDonations
+            totalDonations,
+            avgRating,
+            totalRated: ratedChats.length,
+            queueLength,
+            avgResponseSeconds
         });
     });
 
@@ -613,9 +639,20 @@ const createApiRouter = ({
             .filter((chat) => chat.userId === req.authUser.id)
             .sort((a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt));
 
+        const currentChat = userChats[0] || null;
+
+        if (currentChat) {
+            const openWithoutReply = chats.filter((c) => {
+                if (c.status !== "open") return false;
+                return !(c.messages || []).some((m) => m.senderRole === "admin");
+            });
+            const myIndex = openWithoutReply.findIndex((c) => c.id === currentChat.id);
+            currentChat.queuePosition = myIndex !== -1 ? myIndex + 1 : null;
+        }
+
         res.json({
             chats: userChats,
-            chat: userChats[0] || null
+            chat: currentChat
         });
     });
 
@@ -650,6 +687,12 @@ const createApiRouter = ({
         };
 
         if (index === -1) {
+            const queuePosition = (chats.filter((c) => {
+                if (c.status !== "open") return false;
+                const hasAdminReply = (c.messages || []).some((m) => m.senderRole === "admin");
+                return !hasAdminReply;
+            })).length + 1;
+
             const chat = {
                 id: makeId("chat"),
                 userId: req.authUser.id,
@@ -659,7 +702,12 @@ const createApiRouter = ({
                 status: "open",
                 createdAt: now,
                 updatedAt: now,
-                messages: [supportMessage]
+                messages: [supportMessage],
+                queuePosition,
+                firstResponseAt: null,
+                rating: null,
+                feedback: null,
+                ratedAt: null
             };
 
             chats.push(chat);
@@ -746,10 +794,13 @@ const createApiRouter = ({
             return msg;
         });
 
+        const hasAdminReply = (chats[index].messages || []).some((m) => m.senderRole === "admin");
+
         chats[index] = {
             ...chats[index],
             status: "open",
             updatedAt: now,
+            firstResponseAt: chats[index].firstResponseAt || (!hasAdminReply ? now : undefined),
             messages: [...updatedMessages, supportMessage]
         };
 
@@ -792,6 +843,46 @@ const createApiRouter = ({
             io.emit("support:update", { chat: chats[index] });
         }
 
+        res.json({ chat: chats[index] });
+    });
+
+    router.post("/support/chat/:id/rating", requireAuth, async (req, res) => {
+        const { rating, feedback } = req.body;
+        const ratingNum = parseInt(rating, 10);
+
+        if (!ratingNum || ratingNum < 1 || ratingNum > 5) {
+            res.status(400).json({ message: "Rating harus antara 1-5." });
+            return;
+        }
+
+        const chats = await readData("supportChats");
+        const index = chats.findIndex((chat) => chat.id === req.params.id && chat.userId === req.authUser.id);
+        if (index === -1) {
+            res.status(404).json({ message: "Chat tidak ditemukan." });
+            return;
+        }
+
+        if (chats[index].status !== "closed") {
+            res.status(400).json({ message: "Hanya bisa memberi rating setelah chat ditutup." });
+            return;
+        }
+
+        if (chats[index].rating) {
+            res.status(400).json({ message: "Kamu sudah memberi rating untuk chat ini." });
+            return;
+        }
+
+        const now = new Date().toISOString();
+        chats[index] = {
+            ...chats[index],
+            rating: ratingNum,
+            feedback: (feedback || "").trim().slice(0, 500) || null,
+            ratedAt: now,
+            updatedAt: now
+        };
+
+        await writeData("supportChats", chats);
+        io.emit("support:update", { chat: chats[index] });
         res.json({ chat: chats[index] });
     });
 

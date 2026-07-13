@@ -466,21 +466,81 @@ const initAdminDashboard = async () => {
     const campaignList = document.getElementById("adminCampaignList");
     const userList = document.getElementById("adminUserList");
     const donationList = document.getElementById("adminDonationList");
+    const feedbackList = document.getElementById("adminFeedbackList");
 
     try {
-        const [summary, campaignsPayload, usersPayload, donationsPayload] = await Promise.all([
+        const [summary, campaignsPayload, usersPayload, donationsPayload, supportPayload] = await Promise.all([
             fetchJson("/api/admin/summary"),
             fetchJson("/api/admin/campaigns"),
             fetchJson("/api/admin/users"),
-            fetchJson("/api/admin/donations")
+            fetchJson("/api/admin/donations"),
+            fetchJson("/api/admin/support-chats")
         ]);
 
         if (summaryEl) {
             const cards = summaryEl.querySelectorAll("h3");
             if (cards[0]) cards[0].textContent = (summary.totalUsers || 0).toString();
             if (cards[1]) cards[1].textContent = (summary.activeUsers || 0).toString();
-            if (cards[2]) cards[2].textContent = (summary.pendingCampaigns || 0).toString();
-            if (cards[3]) cards[3].textContent = formatRupiah(summary.totalDonations || 0);
+
+            const queueEl = document.getElementById("summaryQueue");
+            if (queueEl) queueEl.textContent = (summary.queueLength || 0).toString();
+
+            const ratingEl = document.getElementById("summaryRating");
+            if (ratingEl) {
+                ratingEl.textContent = summary.avgRating ? `${summary.avgRating} ★` : "-";
+            }
+
+            const responseEl = document.getElementById("summaryResponse");
+            if (responseEl) {
+                if (summary.avgResponseSeconds !== null && summary.avgResponseSeconds !== undefined) {
+                    const secs = summary.avgResponseSeconds;
+                    if (secs < 60) responseEl.textContent = `${secs}d`;
+                    else if (secs < 3600) responseEl.textContent = `${Math.floor(secs / 60)}m ${secs % 60}d`;
+                    else responseEl.textContent = `${Math.floor(secs / 3600)}j ${Math.floor((secs % 3600) / 60)}m`;
+                } else {
+                    responseEl.textContent = "-";
+                }
+            }
+
+            const donasiEl = document.getElementById("summaryDonasi");
+            if (donasiEl) donasiEl.textContent = formatRupiah(summary.totalDonations || 0);
+        }
+
+        const allChats = Array.isArray(supportPayload.chats) ? supportPayload.chats : [];
+        const ratedChats = allChats.filter((c) => c.rating);
+        const feedbackBadge = document.getElementById("adminFeedbackBadge");
+        if (feedbackBadge) feedbackBadge.textContent = `${ratedChats.length} Ulasan`;
+
+        if (feedbackList) {
+            if (ratedChats.length === 0) {
+                feedbackList.innerHTML = `
+                    <div class="text-center py-6 bg-slate-50 rounded-2xl border border-slate-100">
+                        <i class="ph ph-star text-2xl text-slate-300"></i>
+                        <p class="text-slate-500 font-medium mt-1">Belum ada feedback dari pengguna.</p>
+                    </div>
+                `;
+            } else {
+                feedbackList.innerHTML = ratedChats.sort((a, b) => new Date(b.ratedAt) - new Date(a.ratedAt)).slice(0, 10).map((chat) => {
+                    const stars = [];
+                    for (let i = 1; i <= 5; i++) {
+                        stars.push(`<span class="${i <= chat.rating ? "text-amber-400" : "text-slate-300"}">★</span>`);
+                    }
+                    return `
+                        <div class="flex items-start gap-3 bg-slate-50 rounded-2xl border border-slate-100 p-4">
+                            <div class="flex-shrink-0 w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center text-amber-600 font-bold text-sm">${chat.rating}</div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center justify-between gap-2">
+                                    <p class="text-sm font-semibold text-slate-900 truncate">${escapeHtml(chat.userName || "User")}</p>
+                                    <div class="flex gap-0.5 text-sm">${stars.join("")}</div>
+                                </div>
+                                <p class="text-xs text-slate-500">${escapeHtml(chat.subject || "Chat")}</p>
+                                ${chat.feedback ? `<p class="text-xs text-slate-600 mt-1 italic">"${escapeHtml(chat.feedback)}"</p>` : ""}
+                                <p class="text-xs text-slate-400 mt-1">${formatDateTime(chat.ratedAt)}</p>
+                            </div>
+                        </div>
+                    `;
+                }).join("");
+            }
         }
 
         const campaigns = Array.isArray(campaignsPayload.campaigns) ? campaignsPayload.campaigns : [];
@@ -1667,10 +1727,20 @@ const shouldShowSupportChatWidget = () => {
     return !["/login", "/register", "/admin"].includes(path);
 };
 
+const renderStarRating = (rating, interactive = false) => {
+    const stars = [];
+    for (let i = 1; i <= 5; i++) {
+        const filled = i <= rating;
+        stars.push(`<span class="star ${interactive ? "cursor-pointer hover:scale-110" : ""} text-lg ${filled ? "text-amber-400" : "text-slate-300"}" data-rating="${i}">${filled ? "★" : "☆"}</span>`);
+    }
+    return stars.join("");
+};
+
 const renderUserSupportChat = (chat) => {
     const messagesEl = document.getElementById("supportChatMessages");
     const subjectInput = document.getElementById("supportChatSubject");
     const statusEl = document.getElementById("supportChatStatus");
+    const formEl = document.getElementById("supportChatForm");
     if (!messagesEl) return;
 
     state.supportChat.currentChat = chat || null;
@@ -1685,20 +1755,114 @@ const renderUserSupportChat = (chat) => {
         statusEl.className = `text-[11px] font-semibold px-2 py-1 rounded-full ${getSupportStatusClass(status)}`;
     }
 
+    if (formEl) {
+        const isClosed = chat?.status === "closed";
+        formEl.querySelectorAll("input, textarea, button").forEach((el) => {
+            el.disabled = isClosed;
+            if (isClosed) el.classList.add("opacity-50", "cursor-not-allowed");
+            else el.classList.remove("opacity-50", "cursor-not-allowed");
+        });
+    }
+
+    let html = "";
+
+    if (chat?.queuePosition && chat.status === "open") {
+        const hasAdminReply = (chat.messages || []).some((m) => m.senderRole === "admin");
+        if (!hasAdminReply) {
+            html += `
+                <div class="bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 mb-3 flex items-center gap-2">
+                    <i class="ph ph-clock-counter-clockwise text-amber-600 text-lg"></i>
+                    <div>
+                        <p class="text-xs font-semibold text-amber-800">Antrean Customer Service</p>
+                        <p class="text-xs text-amber-700">Kamu nomor <strong>${chat.queuePosition}</strong> dalam antrean. Admin akan segera membalas.</p>
+                    </div>
+                </div>
+            `;
+        }
+    }
+
     const messages = Array.isArray(chat?.messages) ? chat.messages : [];
     if (!messages.length) {
-        messagesEl.innerHTML = `
+        html += `
             <div class="text-center py-8">
                 <i class="ph ph-headset text-3xl text-slate-300"></i>
                 <p class="text-sm font-medium text-slate-600 mt-2">Ada yang bisa kami bantu?</p>
                 <p class="text-xs text-slate-400">Kirim pertanyaan dan admin akan membalas di sini.</p>
             </div>
         `;
-        return;
+    } else {
+        html += `<div class="space-y-3">${renderSupportMessages(messages)}</div>`;
     }
 
-    messagesEl.innerHTML = `<div class="space-y-3">${renderSupportMessages(messages)}</div>`;
+    if (chat?.status === "closed" && !chat.rating) {
+        html += `
+            <div id="ratingWidget" class="mt-4 bg-white border border-slate-200 rounded-xl p-4 text-center">
+                <p class="text-sm font-semibold text-slate-700 mb-2">Bagaimana pengalaman chat kamu?</p>
+                <div id="ratingStars" class="flex justify-center gap-1 mb-2">${renderStarRating(0, true)}</div>
+                <textarea id="ratingFeedback" class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 mb-2" placeholder="Ceritakan pengalamanmu (opsional)..." rows="2"></textarea>
+                <button id="submitRating" class="w-full rounded-xl bg-amber-500 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-600 transition-colors">Kirim Penilaian</button>
+            </div>
+        `;
+    } else if (chat?.rating) {
+        html += `
+            <div class="mt-4 bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-center">
+                <p class="text-xs font-semibold text-emerald-700 mb-1">Terima kasih atas penilaianmu!</p>
+                <div class="flex justify-center gap-1">${renderStarRating(chat.rating)}</div>
+                ${chat.feedback ? `<p class="text-xs text-slate-600 mt-2 italic">"${escapeHtml(chat.feedback)}"</p>` : ""}
+            </div>
+        `;
+    }
+
+    messagesEl.innerHTML = html;
     messagesEl.scrollTop = messagesEl.scrollHeight;
+
+    const ratingStars = document.getElementById("ratingStars");
+    if (ratingStars) {
+        let selectedRating = 0;
+        const updateStarDisplay = (hoverRating) => {
+            ratingStars.querySelectorAll(".star").forEach((s) => {
+                const r = parseInt(s.dataset.rating, 10);
+                const active = hoverRating !== undefined ? r <= hoverRating : r <= selectedRating;
+                s.className = `star cursor-pointer hover:scale-110 text-lg ${active ? "text-amber-400" : "text-slate-300"}`;
+            });
+        };
+        ratingStars.querySelectorAll(".star").forEach((star) => {
+            star.addEventListener("click", () => {
+                selectedRating = parseInt(star.dataset.rating, 10);
+                updateStarDisplay();
+                const submitBtn = document.getElementById("submitRating");
+                if (submitBtn) submitBtn.disabled = false;
+            });
+            star.addEventListener("mouseenter", () => {
+                updateStarDisplay(parseInt(star.dataset.rating, 10));
+            });
+        });
+        ratingStars.addEventListener("mouseleave", () => {
+            updateStarDisplay();
+        });
+
+        const submitBtn = document.getElementById("submitRating");
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.addEventListener("click", async () => {
+                if (selectedRating < 1) return;
+                const feedbackEl = document.getElementById("ratingFeedback");
+                submitBtn.disabled = true;
+                submitBtn.textContent = "Mengirim...";
+                try {
+                    const payload = await fetchJson(`/api/support/chat/${chat.id}/rating`, {
+                        method: "POST",
+                        body: JSON.stringify({ rating: selectedRating, feedback: feedbackEl?.value.trim() || "" })
+                    });
+                    renderUserSupportChat(payload.chat);
+                } catch (error) {
+                    showAlert("Gagal", error.message || "Gagal mengirim penilaian.", "error");
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = "Kirim Penilaian";
+                }
+            });
+        }
+    }
 
     markChatAsRead(chat);
 };
