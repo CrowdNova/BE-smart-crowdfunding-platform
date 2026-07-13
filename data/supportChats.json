@@ -1,5 +1,4 @@
-[
-  {
+[{
     "id": "chat_1783018386708_ywcxxn",
     "userId": "user_1779177484589_b9d2wc",
     "userName": "Kom Infokan",
@@ -15,7 +14,8 @@
         "senderName": "Kom Infokan",
         "senderRole": "user",
         "message": "lorem ipsum 1",
-        "createdAt": "2026-07-02T18:53:06.705Z"
+        "createdAt": "2026-07-02T18:53:06.705Z",
+        "readAt": "2026-07-13T16:57:36.348Z"
       },
       {
         "id": "msg_1783018422233_j3828n",
@@ -31,7 +31,8 @@
         "senderName": "Kom Infokan",
         "senderRole": "user",
         "message": "oke masuk kak",
-        "createdAt": "2026-07-02T18:54:18.659Z"
+        "createdAt": "2026-07-02T18:54:18.659Z",
+        "readAt": "2026-07-13T16:57:36.348Z"
       },
       {
         "id": "msg_1783018469287_gar1xt",

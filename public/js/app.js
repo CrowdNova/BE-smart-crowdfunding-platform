@@ -27,6 +27,7 @@ const state = {
     currentCampaignCurrentAmount: 0,
     supportChat: {
         currentChat: null,
+        socket: null,
         socketReady: false
     }
 };
@@ -465,21 +466,81 @@ const initAdminDashboard = async () => {
     const campaignList = document.getElementById("adminCampaignList");
     const userList = document.getElementById("adminUserList");
     const donationList = document.getElementById("adminDonationList");
+    const feedbackList = document.getElementById("adminFeedbackList");
 
     try {
-        const [summary, campaignsPayload, usersPayload, donationsPayload] = await Promise.all([
+        const [summary, campaignsPayload, usersPayload, donationsPayload, supportPayload] = await Promise.all([
             fetchJson("/api/admin/summary"),
             fetchJson("/api/admin/campaigns"),
             fetchJson("/api/admin/users"),
-            fetchJson("/api/admin/donations")
+            fetchJson("/api/admin/donations"),
+            fetchJson("/api/admin/support-chats")
         ]);
 
         if (summaryEl) {
             const cards = summaryEl.querySelectorAll("h3");
             if (cards[0]) cards[0].textContent = (summary.totalUsers || 0).toString();
             if (cards[1]) cards[1].textContent = (summary.activeUsers || 0).toString();
-            if (cards[2]) cards[2].textContent = (summary.pendingCampaigns || 0).toString();
-            if (cards[3]) cards[3].textContent = formatRupiah(summary.totalDonations || 0);
+
+            const queueEl = document.getElementById("summaryQueue");
+            if (queueEl) queueEl.textContent = (summary.queueLength || 0).toString();
+
+            const ratingEl = document.getElementById("summaryRating");
+            if (ratingEl) {
+                ratingEl.textContent = summary.avgRating ? `${summary.avgRating} ★` : "-";
+            }
+
+            const responseEl = document.getElementById("summaryResponse");
+            if (responseEl) {
+                if (summary.avgResponseSeconds !== null && summary.avgResponseSeconds !== undefined) {
+                    const secs = summary.avgResponseSeconds;
+                    if (secs < 60) responseEl.textContent = `${secs}d`;
+                    else if (secs < 3600) responseEl.textContent = `${Math.floor(secs / 60)}m ${secs % 60}d`;
+                    else responseEl.textContent = `${Math.floor(secs / 3600)}j ${Math.floor((secs % 3600) / 60)}m`;
+                } else {
+                    responseEl.textContent = "-";
+                }
+            }
+
+            const donasiEl = document.getElementById("summaryDonasi");
+            if (donasiEl) donasiEl.textContent = formatRupiah(summary.totalDonations || 0);
+        }
+
+        const allChats = Array.isArray(supportPayload.chats) ? supportPayload.chats : [];
+        const ratedChats = allChats.filter((c) => c.rating);
+        const feedbackBadge = document.getElementById("adminFeedbackBadge");
+        if (feedbackBadge) feedbackBadge.textContent = `${ratedChats.length} Ulasan`;
+
+        if (feedbackList) {
+            if (ratedChats.length === 0) {
+                feedbackList.innerHTML = `
+                    <div class="text-center py-6 bg-slate-50 rounded-2xl border border-slate-100">
+                        <i class="ph ph-star text-2xl text-slate-300"></i>
+                        <p class="text-slate-500 font-medium mt-1">Belum ada feedback dari pengguna.</p>
+                    </div>
+                `;
+            } else {
+                feedbackList.innerHTML = ratedChats.sort((a, b) => new Date(b.ratedAt) - new Date(a.ratedAt)).slice(0, 10).map((chat) => {
+                    const stars = [];
+                    for (let i = 1; i <= 5; i++) {
+                        stars.push(`<span class="${i <= chat.rating ? "text-amber-400" : "text-slate-300"}">★</span>`);
+                    }
+                    return `
+                        <div class="flex items-start gap-3 bg-slate-50 rounded-2xl border border-slate-100 p-4">
+                            <div class="flex-shrink-0 w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center text-amber-600 font-bold text-sm">${chat.rating}</div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center justify-between gap-2">
+                                    <p class="text-sm font-semibold text-slate-900 truncate">${escapeHtml(chat.userName || "User")}</p>
+                                    <div class="flex gap-0.5 text-sm">${stars.join("")}</div>
+                                </div>
+                                <p class="text-xs text-slate-500">${escapeHtml(chat.subject || "Chat")}</p>
+                                ${chat.feedback ? `<p class="text-xs text-slate-600 mt-1 italic">"${escapeHtml(chat.feedback)}"</p>` : ""}
+                                <p class="text-xs text-slate-400 mt-1">${formatDateTime(chat.ratedAt)}</p>
+                            </div>
+                        </div>
+                    `;
+                }).join("");
+            }
         }
 
         const campaigns = Array.isArray(campaignsPayload.campaigns) ? campaignsPayload.campaigns : [];
@@ -602,14 +663,23 @@ const getSupportStatusClass = (status) => {
         : "bg-emerald-100 text-emerald-700";
 };
 
+const renderReadStatus = (item) => {
+    if (item.readAt) {
+        return `<span class="text-[10px] text-emerald-400 flex items-center gap-0.5"><svg class="w-3.5 h-3.5" viewBox="0 -1 16 16" fill="currentColor"><path d="M15.3 3.3a1 1 0 0 1 0 1.4l-7 7a1 1 0 0 1-1.4 0l-3-3a1 1 0 0 1 1.4-1.4L7.6 9.9l6.3-6.3a1 1 0 0 1 1.4 0z"/><path d="M11.3 3.3a1 1 0 0 1 0 1.4l-4.7 4.7-1.3-1.3a1 1 0 0 1 1.4-1.4l.6.6 4-4a1 1 0 0 1 1.4 0z"/></svg>Dibaca</span>`;
+    }
+    return `<span class="text-[10px] text-slate-400"><svg class="w-3.5 h-3.5 inline" viewBox="0 -1 16 16" fill="currentColor"><path d="M15.3 3.3a1 1 0 0 1 0 1.4l-7 7a1 1 0 0 1-1.4 0l-3-3a1 1 0 0 1 1.4-1.4L7.6 9.9l6.3-6.3a1 1 0 0 1 1.4 0z"/></svg></span>`;
+};
+
 const renderSupportMessages = (messages = [], compact = false) => {
     if (!messages.length) {
         return `<p class="text-sm text-slate-500">Belum ada pesan.</p>`;
     }
 
     const visibleMessages = compact ? messages.slice(-4) : messages;
+    const user = getCurrentUser();
     return visibleMessages.map((item) => {
         const isAdmin = item.senderRole === "admin";
+        const isOwn = user && item.senderId === user.id;
         return `
             <div class="flex ${isAdmin ? "justify-end" : "justify-start"}">
                 <div class="max-w-[86%] rounded-2xl px-3 py-2 ${isAdmin ? "bg-emerald-600 text-white" : "bg-white border border-slate-200 text-slate-700"}">
@@ -618,6 +688,7 @@ const renderSupportMessages = (messages = [], compact = false) => {
                         <span class="text-[10px] ${isAdmin ? "text-emerald-100" : "text-slate-400"}">${formatDateTime(item.createdAt)}</span>
                     </div>
                     <p class="text-sm leading-relaxed">${escapeHtml(item.message || "")}</p>
+                    ${!compact && isOwn ? `<div class="flex justify-end mt-0.5">${renderReadStatus(item)}</div>` : ""}
                 </div>
             </div>
         `;
@@ -662,6 +733,12 @@ const renderAdminSupportChats = (chats = []) => {
 
                 <div class="mt-4 space-y-3 max-h-72 overflow-y-auto pr-1">
                     ${renderSupportMessages(messages, true)}
+                    <div id="adminTyping-${chat.id}" class="hidden text-[11px] text-slate-400 italic flex items-center gap-1 py-1">
+                        <span class="inline-block w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" style="animation-delay:0ms"></span>
+                        <span class="inline-block w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" style="animation-delay:150ms"></span>
+                        <span class="inline-block w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" style="animation-delay:300ms"></span>
+                        Sedang mengetik...
+                    </div>
                 </div>
 
                 <div class="mt-4 flex flex-col gap-2">
@@ -679,13 +756,55 @@ const renderAdminSupportChats = (chats = []) => {
     }).join("");
 };
 
+const adminTypingTimeouts = {};
+
+const createAdminTypingHandler = (chatId) => {
+    return () => {
+        if (!state.supportChat.socket) {
+            try { state.supportChat.socket = window.io(); } catch (e) {}
+        }
+        if (state.supportChat.socket) {
+            state.supportChat.socket.emit("support:typing", {
+                chatId,
+                userId: getCurrentUser()?.id,
+                userRole: "admin",
+                isTyping: true
+            });
+        }
+
+        clearTimeout(adminTypingTimeouts[chatId]);
+        adminTypingTimeouts[chatId] = setTimeout(() => {
+            if (state.supportChat.socket) {
+                state.supportChat.socket.emit("support:typing", {
+                    chatId,
+                    userId: getCurrentUser()?.id,
+                    userRole: "admin",
+                    isTyping: false
+                });
+            }
+        }, 1500);
+    };
+};
+
+const setupAdminTypingListeners = (chats) => {
+    chats.forEach((chat) => {
+        const textarea = document.getElementById(`adminSupportReply-${chat.id}`);
+        if (!textarea) return;
+        textarea.removeEventListener("input", textarea._typingHandler);
+        textarea._typingHandler = createAdminTypingHandler(chat.id);
+        textarea.addEventListener("input", textarea._typingHandler);
+    });
+};
+
 const loadAdminSupportChats = async () => {
     const list = document.getElementById("adminSupportChatList");
     if (!list) return;
 
     try {
         const payload = await fetchJson("/api/admin/support-chats");
-        renderAdminSupportChats(Array.isArray(payload.chats) ? payload.chats : []);
+        const chats = Array.isArray(payload.chats) ? payload.chats : [];
+        renderAdminSupportChats(chats);
+        setupAdminTypingListeners(chats);
     } catch (error) {
         list.innerHTML = `
             <div class="text-center py-8 bg-slate-50 rounded-2xl border border-slate-100">
@@ -703,6 +822,15 @@ window.adminReplySupportChat = async (id) => {
         return;
     }
 
+    if (state.supportChat.socket) {
+        state.supportChat.socket.emit("support:typing", {
+            chatId: id,
+            userId: getCurrentUser()?.id,
+            userRole: "admin",
+            isTyping: false
+        });
+    }
+
     try {
         await fetchJson(`/api/admin/support-chats/${id}/reply`, {
             method: "POST",
@@ -717,6 +845,15 @@ window.adminReplySupportChat = async (id) => {
 };
 
 window.adminUpdateSupportStatus = async (id, status) => {
+    if (state.supportChat.socket) {
+        state.supportChat.socket.emit("support:typing", {
+            chatId: id,
+            userId: getCurrentUser()?.id,
+            userRole: "admin",
+            isTyping: false
+        });
+    }
+
     try {
         await fetchJson(`/api/admin/support-chats/${id}`, {
             method: "PATCH",
@@ -1590,10 +1727,20 @@ const shouldShowSupportChatWidget = () => {
     return !["/login", "/register", "/admin"].includes(path);
 };
 
+const renderStarRating = (rating, interactive = false) => {
+    const stars = [];
+    for (let i = 1; i <= 5; i++) {
+        const filled = i <= rating;
+        stars.push(`<span class="star ${interactive ? "cursor-pointer hover:scale-110" : ""} text-lg ${filled ? "text-amber-400" : "text-slate-300"}" data-rating="${i}">${filled ? "★" : "☆"}</span>`);
+    }
+    return stars.join("");
+};
+
 const renderUserSupportChat = (chat) => {
     const messagesEl = document.getElementById("supportChatMessages");
     const subjectInput = document.getElementById("supportChatSubject");
     const statusEl = document.getElementById("supportChatStatus");
+    const formEl = document.getElementById("supportChatForm");
     if (!messagesEl) return;
 
     state.supportChat.currentChat = chat || null;
@@ -1608,20 +1755,141 @@ const renderUserSupportChat = (chat) => {
         statusEl.className = `text-[11px] font-semibold px-2 py-1 rounded-full ${getSupportStatusClass(status)}`;
     }
 
+    if (formEl) {
+        const isClosed = chat?.status === "closed";
+        formEl.querySelectorAll("input, textarea, button").forEach((el) => {
+            el.disabled = isClosed;
+            if (isClosed) el.classList.add("opacity-50", "cursor-not-allowed");
+            else el.classList.remove("opacity-50", "cursor-not-allowed");
+        });
+    }
+
+    let html = "";
+
+    if (chat?.queuePosition && chat.status === "open") {
+        const hasAdminReply = (chat.messages || []).some((m) => m.senderRole === "admin");
+        if (!hasAdminReply) {
+            html += `
+                <div class="bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 mb-3 flex items-center gap-2">
+                    <i class="ph ph-clock-counter-clockwise text-amber-600 text-lg"></i>
+                    <div>
+                        <p class="text-xs font-semibold text-amber-800">Antrean Customer Service</p>
+                        <p class="text-xs text-amber-700">Kamu nomor <strong>${chat.queuePosition}</strong> dalam antrean. Admin akan segera membalas.</p>
+                    </div>
+                </div>
+            `;
+        }
+    }
+
     const messages = Array.isArray(chat?.messages) ? chat.messages : [];
     if (!messages.length) {
-        messagesEl.innerHTML = `
+        html += `
             <div class="text-center py-8">
                 <i class="ph ph-headset text-3xl text-slate-300"></i>
                 <p class="text-sm font-medium text-slate-600 mt-2">Ada yang bisa kami bantu?</p>
                 <p class="text-xs text-slate-400">Kirim pertanyaan dan admin akan membalas di sini.</p>
             </div>
         `;
-        return;
+    } else {
+        html += `<div class="space-y-3">${renderSupportMessages(messages)}</div>`;
     }
 
-    messagesEl.innerHTML = `<div class="space-y-3">${renderSupportMessages(messages)}</div>`;
+    if (chat?.status === "closed" && !chat.rating) {
+        html += `
+            <div id="ratingWidget" class="mt-4 bg-white border border-slate-200 rounded-xl p-4 text-center">
+                <p class="text-sm font-semibold text-slate-700 mb-2">Bagaimana pengalaman chat kamu?</p>
+                <div id="ratingStars" class="flex justify-center gap-1 mb-2">${renderStarRating(0, true)}</div>
+                <textarea id="ratingFeedback" class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 mb-2" placeholder="Ceritakan pengalamanmu (opsional)..." rows="2"></textarea>
+                <button id="submitRating" class="w-full rounded-xl bg-amber-500 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-600 transition-colors">Kirim Penilaian</button>
+            </div>
+        `;
+    } else if (chat?.rating) {
+        html += `
+            <div class="mt-4 bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-center">
+                <p class="text-xs font-semibold text-emerald-700 mb-1">Terima kasih atas penilaianmu!</p>
+                <div class="flex justify-center gap-1">${renderStarRating(chat.rating)}</div>
+                ${chat.feedback ? `<p class="text-xs text-slate-600 mt-2 italic">"${escapeHtml(chat.feedback)}"</p>` : ""}
+            </div>
+        `;
+    }
+
+    messagesEl.innerHTML = html;
     messagesEl.scrollTop = messagesEl.scrollHeight;
+
+    const ratingStars = document.getElementById("ratingStars");
+    if (ratingStars) {
+        let selectedRating = 0;
+        const updateStarDisplay = (hoverRating) => {
+            ratingStars.querySelectorAll(".star").forEach((s) => {
+                const r = parseInt(s.dataset.rating, 10);
+                const active = hoverRating !== undefined ? r <= hoverRating : r <= selectedRating;
+                s.className = `star cursor-pointer hover:scale-110 text-lg ${active ? "text-amber-400" : "text-slate-300"}`;
+            });
+        };
+        ratingStars.querySelectorAll(".star").forEach((star) => {
+            star.addEventListener("click", () => {
+                selectedRating = parseInt(star.dataset.rating, 10);
+                updateStarDisplay();
+                const submitBtn = document.getElementById("submitRating");
+                if (submitBtn) submitBtn.disabled = false;
+            });
+            star.addEventListener("mouseenter", () => {
+                updateStarDisplay(parseInt(star.dataset.rating, 10));
+            });
+        });
+        ratingStars.addEventListener("mouseleave", () => {
+            updateStarDisplay();
+        });
+
+        const submitBtn = document.getElementById("submitRating");
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.addEventListener("click", async () => {
+                if (selectedRating < 1) return;
+                const feedbackEl = document.getElementById("ratingFeedback");
+                submitBtn.disabled = true;
+                submitBtn.textContent = "Mengirim...";
+                try {
+                    const payload = await fetchJson(`/api/support/chat/${chat.id}/rating`, {
+                        method: "POST",
+                        body: JSON.stringify({ rating: selectedRating, feedback: feedbackEl?.value.trim() || "" })
+                    });
+                    renderUserSupportChat(payload.chat);
+                } catch (error) {
+                    showAlert("Gagal", error.message || "Gagal mengirim penilaian.", "error");
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = "Kirim Penilaian";
+                }
+            });
+        }
+    }
+
+    markChatAsRead(chat);
+};
+
+const markChatAsRead = async (chat) => {
+    if (!chat?.id) return;
+    const user = getCurrentUser();
+    if (!user) return;
+
+    const hasUnread = (chat.messages || []).some((msg) => {
+        return msg.senderRole !== (user.role === "admin" ? "user" : "admin") && !msg.readAt;
+    });
+
+    if (!hasUnread) return;
+
+    try {
+        const payload = await fetchJson(`/api/support/chat/${chat.id}/read`, { method: "PATCH" });
+        if (payload.chat) {
+            state.supportChat.currentChat = payload.chat;
+            const messagesEl = document.getElementById("supportChatMessages");
+            if (messagesEl) {
+                messagesEl.innerHTML = `<div class="space-y-3">${renderSupportMessages(payload.chat.messages || [])}</div>`;
+            }
+        }
+    } catch (error) {
+        // silently fail
+    }
 };
 
 const loadUserSupportChat = async () => {
@@ -1652,6 +1920,9 @@ const toggleSupportChatPanel = (forceOpen) => {
     if (shouldOpen) {
         loadUserSupportChat();
         document.getElementById("supportChatMessage")?.focus();
+    } else {
+        const typingEl = document.getElementById("supportChatTyping");
+        if (typingEl) typingEl.classList.add("hidden");
     }
 };
 
@@ -1675,7 +1946,13 @@ const initSupportChatWidget = () => {
                         </div>
                     </div>
                 </div>
-                <div id="supportChatMessages" class="h-72 overflow-y-auto bg-slate-50 px-4 py-4"></div>
+                <div id="supportChatMessages" class="h-64 overflow-y-auto bg-slate-50 px-4 py-4"></div>
+                <div id="supportChatTyping" class="hidden bg-slate-50 px-4 pb-1 text-[11px] text-slate-400 italic flex items-center gap-1">
+                    <span class="inline-block w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" style="animation-delay:0ms"></span>
+                    <span class="inline-block w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" style="animation-delay:150ms"></span>
+                    <span class="inline-block w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" style="animation-delay:300ms"></span>
+                    Admin sedang mengetik...
+                </div>
                 <form id="supportChatForm" class="space-y-3 border-t border-slate-100 p-4">
                     <input id="supportChatSubject" class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="Topik bantuan" maxlength="120">
                     <textarea id="supportChatMessage" class="w-full min-h-20 rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="Tulis pesan..." required></textarea>
@@ -1691,6 +1968,40 @@ const initSupportChatWidget = () => {
         </div>
     `);
 
+    const messageInput = document.getElementById("supportChatMessage");
+    let typingTimeout = null;
+
+    if (messageInput) {
+        messageInput.addEventListener("input", () => {
+            const chatId = state.supportChat.currentChat?.id;
+            if (!chatId) return;
+
+            if (!state.supportChat.socket) {
+                try { state.supportChat.socket = window.io(); } catch (e) {}
+            }
+            if (state.supportChat.socket) {
+                state.supportChat.socket.emit("support:typing", {
+                    chatId,
+                    userId: getCurrentUser()?.id,
+                    userRole: "user",
+                    isTyping: true
+                });
+            }
+
+            clearTimeout(typingTimeout);
+            typingTimeout = setTimeout(() => {
+                if (state.supportChat.socket && state.supportChat.currentChat?.id) {
+                    state.supportChat.socket.emit("support:typing", {
+                        chatId: state.supportChat.currentChat.id,
+                        userId: getCurrentUser()?.id,
+                        userRole: "user",
+                        isTyping: false
+                    });
+                }
+            }, 1500);
+        });
+    }
+
     document.getElementById("supportChatToggle")?.addEventListener("click", () => toggleSupportChatPanel());
     document.getElementById("supportChatClose")?.addEventListener("click", () => toggleSupportChatPanel(false));
     document.getElementById("supportChatForm")?.addEventListener("submit", async (event) => {
@@ -1705,6 +2016,15 @@ const initSupportChatWidget = () => {
         if (submitButton) {
             submitButton.disabled = true;
             submitButton.classList.add("opacity-70");
+        }
+
+        if (state.supportChat.socket) {
+            state.supportChat.socket.emit("support:typing", {
+                chatId: state.supportChat.currentChat?.id,
+                userId: getCurrentUser()?.id,
+                userRole: "user",
+                isTyping: false
+            });
         }
 
         try {
@@ -1736,6 +2056,8 @@ const initRealtime = () => {
     if (!isAuthenticated()) return;
 
     const socket = window.io();
+    state.supportChat.socket = socket;
+    state.supportChat.socketReady = true;
     socket.on("donation:new", (payload) => {
         if (payload.stats) {
             updateStatsUI(payload.stats);
@@ -1777,6 +2099,26 @@ const initRealtime = () => {
         const isPanelOpen = panel && !panel.classList.contains("hidden");
         if (isPanelOpen && payload.chat?.userId === user.id) {
             renderUserSupportChat(payload.chat);
+        }
+    });
+
+    socket.on("support:typing", (data) => {
+        const user = getCurrentUser();
+        if (!user) return;
+
+        if (user.role === "admin") {
+            const chatId = data.chatId;
+            const typingEl = document.getElementById(`adminTyping-${chatId}`);
+            if (typingEl) {
+                typingEl.classList.toggle("hidden", !data.isTyping);
+            }
+        } else {
+            const chatId = data.chatId;
+            const currentChatId = state.supportChat.currentChat?.id;
+            const typingEl = document.getElementById("supportChatTyping");
+            if (typingEl && chatId === currentChatId) {
+                typingEl.classList.toggle("hidden", !data.isTyping);
+            }
         }
     });
 };

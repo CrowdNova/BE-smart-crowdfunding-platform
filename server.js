@@ -52,6 +52,45 @@ const io = new Server(server, {
     cors: { origin: "*" }
 });
 
+const typingSockets = {};
+
+io.on("connection", (socket) => {
+    socket.on("support:typing", (data) => {
+        const { chatId, userId, userRole, isTyping } = data;
+        const key = `${chatId}`;
+        if (!typingSockets[key]) {
+            typingSockets[key] = {};
+        }
+        typingSockets[key][socket.id] = { userId, userRole, isTyping };
+
+        const hasTyping = Object.values(typingSockets[key]).some((t) => t.isTyping);
+
+        socket.broadcast.emit("support:typing", {
+            chatId,
+            userId,
+            userRole,
+            isTyping: hasTyping
+        });
+    });
+
+    socket.on("disconnect", () => {
+        for (const key of Object.keys(typingSockets)) {
+            if (typingSockets[key][socket.id]) {
+                delete typingSockets[key][socket.id];
+                const hasTyping = Object.values(typingSockets[key]).some((t) => t.isTyping);
+                socket.broadcast.emit("support:typing", {
+                    chatId: key,
+                    userId: typingSockets[key][socket.id]?.userId,
+                    isTyping: hasTyping
+                });
+                if (Object.keys(typingSockets[key]).length === 0) {
+                    delete typingSockets[key];
+                }
+            }
+        }
+    });
+});
+
 const DATA_DIR = path.join(__dirname, "data");
 const FILES = {
     users: "users.json",
