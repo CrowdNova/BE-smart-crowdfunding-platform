@@ -1,4 +1,5 @@
-[{
+[
+  {
     "id": "chat_1783018386708_ywcxxn",
     "userId": "user_1779177484589_b9d2wc",
     "userName": "Kom Infokan",
@@ -6,7 +7,7 @@
     "subject": "phase 1: support chat",
     "status": "closed",
     "createdAt": "2026-07-02T18:53:06.705Z",
-    "updatedAt": "2026-07-02T18:54:47.351Z",
+    "updatedAt": "2026-07-13T17:34:15.721Z",
     "messages": [
       {
         "id": "msg_1783018386708_z28hqh",
@@ -50,6 +51,9 @@
         "message": "kami tutup yah",
         "createdAt": "2026-07-02T18:54:43.832Z"
       }
-    ]
+    ],
+    "rating": 4,
+    "feedback": null,
+    "ratedAt": "2026-07-13T17:34:15.721Z"
   }
 ]

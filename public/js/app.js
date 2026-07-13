@@ -1527,6 +1527,43 @@ const initNotificationPanel = () => {
         if (event.key === "Escape") {
             closePanel();
         }
+
+    const userButton = document.getElementById("userMenuButton");
+    const userPanel = document.getElementById("userMenuPanel");
+
+    if (userButton && userPanel) {
+        const closeUserPanel = () => {
+            userPanel.classList.add("hidden");
+            userButton.setAttribute("aria-expanded", "false");
+        };
+
+        userButton.addEventListener("click", (event) => {
+            event.stopPropagation();
+            const isHidden = userPanel.classList.contains("hidden");
+            if (isHidden) {
+                document.querySelectorAll("#userMenuPanel, #notificationPanel").forEach((p) => {
+                    if (p.id !== "userMenuPanel") p.classList.add("hidden");
+                });
+                userPanel.classList.remove("hidden");
+                userButton.setAttribute("aria-expanded", "true");
+            } else {
+                closeUserPanel();
+            }
+        });
+
+        document.addEventListener("click", (event) => {
+            if (!userPanel.classList.contains("hidden") &&
+                !userPanel.contains(event.target) &&
+                event.target !== userButton &&
+                !userButton.contains(event.target)) {
+                closeUserPanel();
+            }
+        });
+
+        document.addEventListener("keydown", (event) => {
+            if (event.key === "Escape") closeUserPanel();
+        });
+    }
     });
 
     if (markReadBtn) {
